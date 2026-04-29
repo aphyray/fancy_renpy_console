@@ -25,7 +25,7 @@ This also overwrites the watch and notify screens.
 * Scrollable with the mouse wheel
 * Repeated expressions don't repeat
 * Click to clear expressions
-* Pretty prints by default. wrap expression in nopf() to prevent that
+* Pretty prints by default. Wrap expression in nopf() to prevent that
 
 ### Notify
 * Behaves like a queue now
