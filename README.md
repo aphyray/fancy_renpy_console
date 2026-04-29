@@ -22,6 +22,7 @@ watch:
 * scrollable with mouse wheel
 * repeated expressions don't repeat
 * click to clear expressions
+* pretty prints by default. wrap expression in nopf() to prevent that
 
 notify:
 * behaves like a queue now
