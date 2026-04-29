@@ -11,6 +11,7 @@ define config.console_history_size = 50
 default _console.reticle_callback = notify_tag_attributes
 default _console.reticle_callback_alternate = watch_tag_attributes
 default _console.verbose = False
+default _console.autocomplete_on = True
 default _console.suppressed_error_patterns = [
     "Exception: Cannot start an interaction in the middle of an interaction, without creating a new context.",
     # "TypeError: exec() arg 1 must be a string, bytes or code object",
@@ -615,13 +616,40 @@ init python:
 
     def get_console_input_text():
 
-        return renpy.get_screen_variable("console_input", "_console").content
+        try:
+            return renpy.get_screen_variable("console_input", "_console").content
+        except:
+            return ""
 
     def set_console_input_text(string=""):
 
-        input_object = renpy.get_screen_variable("console_input", "_console")
+        try:
+            input_object = renpy.get_screen_variable("console_input", "_console")
+        except:
+            return
+
+        # line = input_object.content
+        input_object.caret_pos = len(string)
+        input_object.old_care_pos = len(string)
+        input_object.update_text(string, True)
+        input_object.per_interact()
+
+    def set_console_autocomplete_text(string=""):
+
+        try:
+            input_object = renpy.get_screen_variable("console_autocomplete_input", "_console")
+        except:
+            return
 
         line = input_object.content
+        input_object.caret_pos = len(string)
+        input_object.old_care_pos = len(string)
+        input_object.update_text(string, True)
+        input_object.per_interact()
+
+
+    def set_input_text(input_object, content=""):
+
         input_object.caret_pos = len(string)
         input_object.old_care_pos = len(string)
         input_object.update_text(string, True)
@@ -687,7 +715,9 @@ init python:
         console.backup()
 
     def console_handle_escape(exit_action):
-        if get_console_input_text() != "":
+        if len(persistent.autocomplete_list) > 0:
+            console_clear_autocomplete()
+        elif get_console_input_text() != "":
             set_console_input_text()
         else:
             for action in [] + exit_action:
@@ -738,6 +768,187 @@ init python:
     # config.stdout_callbacks.append(refresh_console)
     # config.stderr_callbacks.append(refresh_console)
 
+    # used for fuzzy matching and sorting with .ratio()
+    from difflib import SequenceMatcher
+
+    def fuzzy_match_sorter(big_string, small_string):
+        big_string = str.casefold(big_string)
+        small_string = str.casefold(small_string)
+        # "00000big_string" when there's a partial match right at the start
+        # "00009big_string" when there's a 0.9 fuzzy ratio - x10 to group into rough categories and then alphabetically 
+        return "00000" + big_string if big_string.startswith(small_string) else "{:05d}{}".format(10 - int(10*SequenceMatcher(None, small_string, big_string).ratio()), big_string)
+
+    def fuzzy_match_sorter(big_string, small_string):
+        lower_big_string = str.casefold(big_string)
+        lower_small_string = str.casefold(small_string)
+
+        ranked_partial_match_string = "{:05d}{}".format(0, lower_big_string)
+
+        ranked_fuzzy_string = "{:05d}{}".format(
+            int(8*max(SequenceMatcher(None, lower_small_string, lower_big_string).ratio(), SequenceMatcher(None, lower_big_string, lower_small_string).ratio())),
+            lower_big_string
+        )
+
+        # "Abig_string" when there's a partial match right at the start
+        # "[B..]big_string" when there's a 0.9 fuzzy ratio - x10 to group into rough categories and then alphabetically 
+        return ranked_partial_match_string if lower_big_string.startswith(lower_small_string) else ranked_fuzzy_string
+
+
+    # s1 = ' It was a dark and stormy night. I was all alone sitting on a red chair. I was not completely alone as I had three cats.'
+    # s2 = ' It was a murky and stormy night. I was all alone sitting on a crimson chair. I was not completely alone as I had three felines.'
+    # SM(None, s1, s2).ratio()
+
+    def handle_input_change(content):
+
+        # include_renpy_statements = False
+
+        persistent.console_input_text = content
+
+        persistent.autocomplete_list.clear()
+        persistent.autocomplete_selection_index = 0
+        update_autocomplete_list_position_and_text()
+
+        if not _console.autocomplete_on:
+            return        
+        
+        if persistent.autocomplete_on and persistent.console_input_text != "":
+            subject = re.split(r'[^\w\.]', persistent.console_input_text)[-1]
+            current_leaf = subject.split('.')[-1]
+            if re.match(r'^.*\w.*$', subject):
+                try:
+                    subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
+                    # available_variables = list(set(dir(subject_object) + ([] if include_renpy_statements and subject != current_leaf else list(set([i for sub in list(renpy.statements.registry.keys()) for i in sub ]))))) # all the renpy commands, but only if this is the first item
+                    available_variables = dir(subject_object)
+                    persistent.autocomplete_list = sorted(
+                                [
+                                    item for item in available_variables
+                                    if not item[0:2] == "__" and (current_leaf == "" or item.lower().startswith(current_leaf.lower()) or SequenceMatcher(None, current_leaf.lower(), item.lower()).ratio() > 0.65 )
+                                ],
+                                key=renpy.partial(fuzzy_match_sorter, small_string=current_leaf)
+                            )
+                except:
+                    pass
+
+        persistent.autocompleting = len(persistent.autocomplete_list) > 0
+
+        if persistent.autocompleting:
+            set_console_autocomplete_text(get_autocomplete_list_with_highlight())
+        else:
+            set_console_autocomplete_text("")
+
+    def get_branch_and_leaf_from_incomplete_statement(statement):
+        split_by_nonwords = re.split(r'(\W)', statement)
+        leaf = split_by_nonwords[-1]
+        branch = ''.join(split_by_nonwords[0:-1])
+
+        return {"branch": branch, "leaf": leaf}
+
+    def get_autocomplete_list_with_highlight(offset_by=0):
+        max_length = 5
+        
+        persistent.autocomplete_selection_index += offset_by
+        persistent.autocomplete_selection_index = min(max(0, persistent.autocomplete_selection_index), len(persistent.autocomplete_list)-1)
+        index = persistent.autocomplete_selection_index
+
+        offset = int(
+            max(
+                0,
+                min(
+                    len(persistent.autocomplete_list)-max_length,
+                    max(0, index - max_length/2 + 1)
+                )
+            )
+        )
+
+        items = [
+            "{}{}".format(
+                "> " if i == index-offset else "  ",
+                item
+            )
+            for i, item in enumerate(persistent.autocomplete_list[offset:offset+max_length])
+        ]
+
+        if offset > 0:
+            items.insert(0, "  ... {} ...".format(offset))
+        
+        if offset + max_length < len(persistent.autocomplete_list):
+            items.append("  ... {} ...".format(len(persistent.autocomplete_list) - offset - max_length))
+
+        return '\n'.join(items)
+
+    def update_autocomplete_list_position_and_text(offset_by=0):
+        if _console.autocomplete_on and len(persistent.autocomplete_list) > 0:
+            set_console_autocomplete_text(get_autocomplete_list_with_highlight(offset_by=offset_by))
+        elif offset_by != 0:
+            console_recall_line(_console.console, offset_by)
+            console_clear_autocomplete()
+
+    def console_clear_autocomplete():
+        persistent.autocomplete_list.clear()
+        update_autocomplete_list_position_and_text()
+        set_console_autocomplete_text("")
+
+    def console_handle_tab_keypress():
+        if len(persistent.autocomplete_list) > 0:
+        
+            input_text = get_console_input_text()
+            branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
+
+            set_console_input_text(branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index])
+        
+            console_clear_autocomplete()
+        else:
+            _TouchKeyboardTextInput('  ').__call__()
+
+
+    def console_handle_return_keypress():
+        if len(persistent.autocomplete_list) > 0:
+        
+            input_text = get_console_input_text()
+            branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
+            completed_statement = branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index]
+
+            set_console_input_text(completed_statement)
+
+            if(input_text == completed_statement):
+                console_process_input(_console.console)
+                _console.console.show_stdio()
+        
+            console_clear_autocomplete()
+
+        else:
+        
+            console_process_input(_console.console)
+            _console.console.show_stdio()
+
+            # Function(console_process_input, _console.console),
+            # Function(_console.console.show_stdio), # grabs any stdio output in the buffer
+            # Scroll("history_viewport", "vertical increase", -100000000.0, 0.0),
+            
+
+screen autocomplete_widget():
+    layer config.interface_layer
+    zorder 100000
+
+    $ autocomplete_list = persistent.autocomplete_list
+
+    frame:
+
+        align (0.5, 0.5)
+
+        has vbox
+
+        for entry in autocomplete_list:
+            button:
+                text entry style "_console_text"
+
+
+
+default persistent.console_input_text = ""
+default persistent.autocomplete_on = True
+default persistent.autocomplete_list = []
+default persistent.autocompleting = False
+default persistent.autocomplete_selection_index = 0
 
 # the console
 
@@ -761,7 +972,16 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
         dict(zip(renpy.display.scenelists.ordered_layers, [True for i in range(0, len(renpy.display.scenelists.ordered_layers))])) if len(persistent.console_image_summary_layers) != len(renpy.display.scenelists.ordered_layers) else persistent.console_image_summary_layers
     )
 
+    # default autocomplete_list = []
+
     python:
+        # autocomplete_list = [] if (get_console_input_text() == "") else sorted(
+        #             [
+        #                 item for item in autocomplete_options
+        #                 if item.lower().startswith(current_leaf.lower())
+        #             ],
+        #             key=str.casefold
+        #         )
 
         exit_action = [Function(console_save_state, _console.console), Hide()] #, Function(renpy.end_interaction, 0)
 
@@ -971,6 +1191,36 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 size 28
                                 outlines [ (absolute(0.75), "#FFF", absolute(0), absolute(0)) ]
 
+                        drag:
+                            draggable False
+                            clicked [
+                                # add reshowing/hiding autocomplete panel
+                                ToggleVariable("_console.autocomplete_on"),
+                                Function(update_autocomplete_list_position_and_text),
+                                Notify("tab completion is now {}".format("on" if not _console.autocomplete_on else "off")), # the value lags behind one update
+                            ]
+
+                            xpos 150
+                            ypos 0
+
+                            has button
+                            background None
+                            padding (16, 16)
+                            xysize(42, 42)
+
+                            text "💡":
+                                at transform:
+                                    alpha (1.0 if _console.autocomplete_on else 0.4)
+                                    matrixcolor ColorizeMatrix("#FFF", "#FFF")
+                                xalign 0.5
+                                yalign 0.5
+                                yoffset 2
+                                xoffset -2
+                                prefer_emoji False
+                                style "_console_text"
+                                font "code/utilities/console/fonts/NotoSansSymbols-Regular.ttf"
+                                size 24
+
                         $ clear_function = config.console_commands.get("clear", None)
 
                         if not minimized:
@@ -980,7 +1230,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     Function(clear_function, renpy.parser.Lexer([])),
                                 ]
 
-                                xpos 150
+                                xpos 200
                                 ypos 0
 
                                 has button:
@@ -1158,10 +1408,30 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 # # $ partitioned_lines.reverse()
                                 # # [["5 + 7"], ["Bob", "b", "5", "8-3", "12"]]
 
+                    $ autocomplete_on = _console.autocomplete_on
+
+                    if _console.autocomplete_on:
+                        fixed as console_autocomplete_frame: # my dream is to make this whole thing disappear when the autocomplete text is empty, but alas, that requires restart_interaction(), and I ain't living that life
+                            yalign 1.0
+                            ysize 0
+                            frame:
+                                background None
+                                yalign 1.0
+                                padding (5, 5)
+                                frame:
+                                    background "#213C"
+                                    yalign 1.0
+                                    padding (-1, -1) # this manages to get rid of the weird border artefact
+                                    input as console_autocomplete_input:
+                                        yalign 1.0
+                                        style "_console_input_text"
+                                        caret Null()
+
 
                     fixed as input_fixed:
                         yalign 1.0
                         ysize 2*absolute(style._console_input_text.size + text_size_adjustment)
+
                         frame:
                             yalign 1.0
                             background "#2136"
@@ -1193,6 +1463,9 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 input as console_input:
                                     default default
                                     style "_console_input_text"
+
+                                    changed handle_input_change
+
                                     exclude ""
                                     copypaste True
                                     multiline True
@@ -1239,22 +1512,27 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     size 18
                                     outlines [ (absolute(0.5), "#FFF", absolute(0), absolute(0)) ]
 
-    key "K_TAB" action _TouchKeyboardTextInput('  ')
+    # key "ctrl_K_TAB" action _TouchKeyboardTextInput('  ')
+    key "K_TAB" action Function(console_handle_tab_keypress)
 
     # watch whatever's in the input box
     key "ctrl_K_RETURN" action Function(console_watch_current_input)
 
     key "noshift_K_RETURN" action [
-        Function(console_process_input, _console.console),
-        Function(_console.console.show_stdio), # grabs any stdio output in the buffer
-        Scroll("history_viewport", "vertical increase", -100000000.0, 0.0),
+        Function(console_handle_return_keypress),
+        # Function(console_process_input, _console.console),
+        # Function(_console.console.show_stdio), # grabs any stdio output in the buffer
+        # Scroll("history_viewport", "vertical increase", -100000000.0, 0.0),
     ]
 
     key "console_exit" action Function(console_handle_escape, exit_action)
     key "K_PAGEDOWN" action Function(console_recall_line, _console.console, +100000000)
 
-    key "console_older" action Function(console_recall_line, _console.console, -1)
-    key "console_newer" action Function(console_recall_line, _console.console, +1)
+    key "anyrepeat_K_UP" action Function(update_autocomplete_list_position_and_text, offset_by=-1, _update_screens=False)
+    key "anyrepeat_K_DOWN" action Function(update_autocomplete_list_position_and_text, offset_by=1, _update_screens=False)
+
+    # key "console_older" action Function(console_recall_line, _console.console, -1)
+    # key "console_newer" action Function(console_recall_line, _console.console, +1)
 
 init python:
     # allows shift-arrowkeys to move around the multiline input
@@ -1411,13 +1689,6 @@ label _my_console:
 label _my_console_return:
 
     return
-
-
-
-
-
-
-
 
 
 
