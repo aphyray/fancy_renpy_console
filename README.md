@@ -1,6 +1,6 @@
 # It's A Fancy Ren'Py Console!
 
-<img width="2236" height="1074" alt="image" src="https://github.com/user-attachments/assets/f1f09a8b-7016-44a6-9f63-3bec031cda62" />
+<img width="2407" height="1350" alt="image" src="https://github.com/user-attachments/assets/a57e8a5b-d7fc-4bcd-b7a7-3698f66b0c73" />
 
 ## Overview
 This console runs overtop of the main game loop and will not interupt or restart interactions.
@@ -10,6 +10,7 @@ It can be repositioned and minimized to just the input line if you just want to 
 There are a few convenience features, noted in the image above.
 
 ## Other Features
+* Tab completion
 * Clicking on a command will copy it to the clipboard
 * Clicking on output will copy both the command and output to the clipboard
 * `Shift-Enter` is a newline
