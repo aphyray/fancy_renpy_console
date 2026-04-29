@@ -1,4 +1,5 @@
-<img width="2236" height="1074" alt="image" src="https://github.com/user-attachments/assets/51246442-6389-4341-8dda-4f7537dc9a8f" />
+<img width="2236" height="1074" alt="image" src="https://github.com/user-attachments/assets/f1f09a8b-7016-44a6-9f63-3bec031cda62" />
+
 
 This console runs overtop of the main game loop and will not interupt or restart interactions.
 
