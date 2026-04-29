@@ -29,3 +29,7 @@ notify:
 * click to dismiss
 * lingers based on cps preference, or using a default of 60 cps
 * pretty
+
+provided without warranty. full of jank and over-writing of functions in modules.
+
+pretty functional as of 8.5.3.
