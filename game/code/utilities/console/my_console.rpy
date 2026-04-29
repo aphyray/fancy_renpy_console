@@ -818,7 +818,7 @@ init python:
                 try:
                     subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
                     # available_variables = list(set(dir(subject_object) + ([] if include_renpy_statements and subject != current_leaf else list(set([i for sub in list(renpy.statements.registry.keys()) for i in sub ]))))) # all the renpy commands, but only if this is the first item
-                    available_variables = dir(subject_object)
+                    available_variables = list(set(dir(subject_object) + list(config.console_commands)))
                     persistent.autocomplete_list = sorted(
                                 [
                                     item for item in available_variables
