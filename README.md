@@ -17,6 +17,7 @@ There are a few convenience features, noted in the image above.
 * `Tab` is a double-space
 * `Shift-Up/Down` moves up and down when there are multiple lines
 * When you click the reticle in the top left there it changes modes - notify or watch
+* When you right-click the layer watcher icon, you can choose which layers to monitor
 
 ## Watch and Notify
 This also overwrites the watch and notify screens.
