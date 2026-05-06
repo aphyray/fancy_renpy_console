@@ -1,4 +1,4 @@
-﻿# allows the console to appears even in menues
+# allows the console to appears even in menues
 define config.top_layers = config.top_layers + [
     "console",
     "notify",
@@ -402,6 +402,7 @@ init -1400 python in _console:
 init python:
     import itertools
     import linecache
+    import keyword
 
     def dragged_console(drags=None, drop=None):
         # persistent.console_bounds = (absolute(drags[0].x), absolute(drags[0].y), absolute(drags[0].w), absolute(drags[0].h))
@@ -634,6 +635,8 @@ init python:
         input_object.update_text(string, True)
         input_object.per_interact()
 
+    # region autocomplete
+
     def set_console_autocomplete_text(string=""):
 
         try:
@@ -782,17 +785,59 @@ init python:
         lower_big_string = str.casefold(big_string)
         lower_small_string = str.casefold(small_string)
 
-        ranked_partial_match_string = "{:05d}{}".format(0, lower_big_string)
+        rank_1_match_string = "{:05d}{}".format(0, lower_big_string)
 
-        ranked_fuzzy_string = "{:05d}{}".format(
+        rank_2_match_string = "{:05d}{}".format(1, lower_big_string)
+
+        ranked_fuzzy_match_string = "{:04d}{}".format(
             int(8*max(SequenceMatcher(None, lower_small_string, lower_big_string).ratio(), SequenceMatcher(None, lower_big_string, lower_small_string).ratio())),
             lower_big_string
         )
 
         # "Abig_string" when there's a partial match right at the start
-        # "[B..]big_string" when there's a 0.9 fuzzy ratio - x10 to group into rough categories and then alphabetically 
-        return ranked_partial_match_string if lower_big_string.startswith(lower_small_string) else ranked_fuzzy_string
+        # "[B..]big_string" when there's a 0.9 fuzzy ratio - x10 to group into rough categories and then alphabetically
+        # return rank 1 is the big string is a case-sensitive partial match, 2 if case-insensitive, else the fuzzy match
+        return (
+            rank_1_match_string if big_string.startswith(small_string) else (
+                rank_2_match_string if lower_big_string.startswith(lower_small_string) else ranked_fuzzy_match_string
+            )
+        )
 
+
+    def get_available_variables(line):
+        subject = re.split(r'[^\w\.]', line)[-1]
+        current_leaf = subject.split('.')[-1]
+        keywords = re.split(r'[ ]', line)
+        available_variables = []
+
+
+        if re.match(r'^.*\w.*$', subject):
+            try:
+                subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
+                available_variables += list(dir(subject_object))
+            except:
+                pass
+
+        if current_leaf != "":
+
+            available_variables += keyword.kwlist # python keywords
+
+            if subject == current_leaf:
+                available_variables += list(config.console_commands) # renpy console commands
+                available_variables += [i for sub in list(renpy.statements.registry.keys()) for i in sub ] # renpy statements
+
+            if len(keywords) > 1:
+                if keywords[-2] in ["show", "hide", "scene"]:
+                    available_variables += renpy.display.image.get_available_image_tags()
+                    available_variables += ["expression", "screen"]
+
+        return sorted(
+            [
+                item for item in list(set(available_variables))
+                if not item[0:2] == "__" and len(current_leaf) <= len(item) and ( current_leaf == "" or item.lower().startswith(current_leaf.lower()) or SequenceMatcher(None, current_leaf.lower(), item.lower()).ratio() > 0.65 )
+            ],
+            key=renpy.partial(fuzzy_match_sorter, small_string=current_leaf)
+        )
 
     # s1 = ' It was a dark and stormy night. I was all alone sitting on a red chair. I was not completely alone as I had three cats.'
     # s2 = ' It was a murky and stormy night. I was all alone sitting on a crimson chair. I was not completely alone as I had three felines.'
@@ -812,22 +857,33 @@ init python:
             return        
         
         if persistent.autocomplete_on and persistent.console_input_text != "":
-            subject = re.split(r'[^\w\.]', persistent.console_input_text)[-1]
-            current_leaf = subject.split('.')[-1]
-            if re.match(r'^.*\w.*$', subject):
-                try:
-                    subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
-                    # available_variables = list(set(dir(subject_object) + ([] if include_renpy_statements and subject != current_leaf else list(set([i for sub in list(renpy.statements.registry.keys()) for i in sub ]))))) # all the renpy commands, but only if this is the first item
-                    available_variables = list(set(dir(subject_object) + ([] if subject != current_leaf else list(config.console_commands))))
-                    persistent.autocomplete_list = sorted(
-                                [
-                                    item for item in available_variables
-                                    if not item[0:2] == "__" and (current_leaf == "" or item.lower().startswith(current_leaf.lower()) or SequenceMatcher(None, current_leaf.lower(), item.lower()).ratio() > 0.65 )
-                                ],
-                                key=renpy.partial(fuzzy_match_sorter, small_string=current_leaf)
-                            )
-                except:
-                    pass
+            # subject = re.split(r'[^\w\.]', persistent.console_input_text)[-1]
+            # current_leaf = subject.split('.')[-1]
+            # if re.match(r'^.*\w.*$', subject):
+            #     try:
+            #         subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
+            #         # available_variables = list(set(dir(subject_object) + ([] if include_renpy_statements and subject != current_leaf else list(set([i for sub in list(renpy.statements.registry.keys()) for i in sub ]))))) # all the renpy commands, but only if this is the first item
+            #         available_variables = list(set(
+            #             dir(subject_object) # anything the subject contains
+            #             + (
+            #                 [] if subject != current_leaf # when the subject is the current leaf, we don't want to add anything else
+            #                 else keyword.kwlist # python keywords
+            #                     + list(config.console_commands) # renpy console commands
+            #                     + [i for sub in list(renpy.statements.registry.keys()) for i in sub ] # renpy statements
+            #                 )
+            #             ))
+
+            #         persistent.autocomplete_list = sorted(
+            #                     [
+            #                         item for item in available_variables
+            #                         if not item[0:2] == "__" and len(current_leaf) <= len(item) and ( current_leaf == "" or item.lower().startswith(current_leaf.lower()) or SequenceMatcher(None, current_leaf.lower(), item.lower()).ratio() > 0.65 )
+            #                     ],
+            #                     key=renpy.partial(fuzzy_match_sorter, small_string=current_leaf)
+            #                 )
+            #     except:
+            #         pass
+
+            persistent.autocomplete_list = get_available_variables(persistent.console_input_text)
 
         persistent.autocompleting = len(persistent.autocomplete_list) > 0
 
@@ -1416,7 +1472,13 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                             ysize 0
                             frame:
                                 background None
-                                yalign 1.0
+                                # generally gonna look better below the bar
+                                # but not when maximized
+                                # unless both maximized and minimized
+                                ypos 1.0
+                                yanchor 1.0 * float(maximized and not minimized)
+                                xpos absolute(style._console_input_text.size + text_size_adjustment)
+                                yoffset 2*absolute(style._console_input_text.size + text_size_adjustment) * int(not maximized or (minimized and maximized))
                                 padding (5, 5)
                                 frame:
                                     background "#213C"
@@ -1425,6 +1487,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     input as console_autocomplete_input:
                                         yalign 1.0
                                         style "_console_input_text"
+                                        size absolute(style._console_input_text.size + text_size_adjustment)
                                         caret Null()
 
 
@@ -1443,7 +1506,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 background "#213C"
                                 xalign 0.5
                                 yalign 1.0
-                                xysize(2*absolute(style._console_input_text.size + text_size_adjustment), 2*absolute(style._console_input_text.size + text_size_adjustment))
+                                xysize (2*absolute(style._console_input_text.size + text_size_adjustment), 2*absolute(style._console_input_text.size + text_size_adjustment))
                                 padding (0,0)
                                 text "👁":
                                     yoffset 4
@@ -1777,7 +1840,6 @@ init python:
             transforms.append(transform)
 
         return transforms
-
 
     def get_all_stores():
         return [ getattr(store, var_name) for var_name in vars(store) if type(getattr(store, var_name)) == type(store) ]
