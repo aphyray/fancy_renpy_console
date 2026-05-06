@@ -470,22 +470,35 @@ init python:
     def watch_at_list(tag, layer="master"):
         return renpy.get_at_list(tag, layer)
 
-    def get_all_transform_properties(tag, layer="master"):
-        
-        default_transform = renpy.display.transform.TransformState()
-        transform = renpy.get_screen(tag, layer=layer)
-        new_adjustments = default_transform.diff(transform.state)
-        adjustments = {x: [new_adjustments[x][1]] for x in new_adjustments}
+    def get_all_displayables_on_displayable(displayable):
 
-        while new_adjustments and hasattr(transform, "child") and hasattr(transform.child, "state"):
-            new_adjustments = default_transform.diff(transform.child.state)
-            adjustments = {
-                x: ([new_adjustments[x][1]] if new_adjustments.get(x) else []) + (adjustments[x] if adjustments.get(x) else [])
-                for x in set(list(new_adjustments)).union(list(adjustments))
-            }
-            transform = transform.child
+        displayables = []
+
+        displayable.visit_all(lambda d: displayables.append(d))
+
+        return displayables
+
+
+    def get_all_transform_properties(tag, layer="master"):
+        default_transform_state = renpy.display.transform.TransformState()
+        displayable = renpy.get_screen(tag, layer=layer)
+
+        displayables = get_all_displayables_on_displayable(displayable)
+
+        displayable_state_diffs = [d.state.diff(default_transform_state) for d in displayables if hasattr(d, "state")]
+
+        diff_dicts = [ { key: diff[key][0] for key in diff } for diff in displayable_state_diffs ]
+
+        differences = {}
         
-        return adjustments
+        for diff_dict in diff_dicts:
+            for key in diff_dict:
+                if key in differences:
+                    differences[key] = [diff_dict[key]] + differences[key]
+                else:
+                    differences[key] = [diff_dict[key]]
+
+        return differences
 
 
     def get_image_attributes_summary():
@@ -917,7 +930,7 @@ init python:
         )
 
         items = [
-            "{}{}".format(
+            "{}{}   ".format(
                 "> " if i == index-offset else "  ",
                 item
             )
@@ -1470,6 +1483,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                         fixed as console_autocomplete_frame: # my dream is to make this whole thing disappear when the autocomplete text is empty, but alas, that requires restart_interaction(), and I ain't living that life
                             yalign 1.0
                             ysize 0
+                            xoffset absolute(style._console_input_text.size + text_size_adjustment)
                             frame:
                                 background None
                                 # generally gonna look better below the bar
@@ -1477,7 +1491,6 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 # unless both maximized and minimized
                                 ypos 1.0
                                 yanchor 1.0 * float(maximized and not minimized)
-                                xpos absolute(style._console_input_text.size + text_size_adjustment)
                                 yoffset 2*absolute(style._console_input_text.size + text_size_adjustment) * int(not maximized or (minimized and maximized))
                                 padding (5, 5)
                                 frame:
@@ -1840,6 +1853,7 @@ init python:
             transforms.append(transform)
 
         return transforms
+
 
     def get_all_stores():
         return [ getattr(store, var_name) for var_name in vars(store) if type(getattr(store, var_name)) == type(store) ]
