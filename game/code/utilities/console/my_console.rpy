@@ -30,7 +30,8 @@ define config.label_overrides = {
     }
 
 
-# Console styles.
+# region Styles
+
 init -1500:
 
     style _console is _default:
@@ -102,9 +103,35 @@ init -1500:
         
     style _console_trace_value is _console_trace_text
 
+
+# region Overrides
+
 init -1400 python in _console:
 
     import traceback
+
+    class BoundedList(NoRollback, list):
+        """
+        A list that's bounded at a certain size.
+        """
+
+        def __init__(self, size, lines=None):
+            self.size = size
+            self.lines = lines
+
+        def append(self, value):
+            super(BoundedList, self).append(value)
+
+            while len(self) >= self.size:
+                self.pop(0)
+
+            if self.lines is not None:
+                while (len(self) > 1) and (sum(i.lines for i in self) > self.lines):
+                    self.pop(0)
+
+        def clear(self):
+            self[:] = [ ]
+
 
     class MyScriptErrorHandler:
         """
@@ -287,14 +314,14 @@ init -1400 python in _console:
                 else:
                     try:
                         result = renpy.python.py_eval(code)
-                        if persistent._console_short and not getattr(result, "_console_always_long", False):
-                            he.result = aRepr.repr(result)
+                        # if persistent._console_short and not getattr(result, "_console_always_long", False):
+                        #     he.result = aRepr.repr(result)
 
-                            if not self.did_short_warning and he.result != repr(result):
-                                self.did_short_warning = True
-                                he.result += "\n\n" + __("The console is using short representations. To disable this, type 'long', and to re-enable, type 'short'")
-                        else:
-                            he.result = repr(result)
+                        #     if not self.did_short_warning and he.result != repr(result):
+                        #         self.did_short_warning = True
+                        #         he.result += "\n\n" + __("The console is using short representations. To disable this, type 'long', and to re-enable, type 'short'")
+                        # else:
+                        he.result = repr(result)
 
                         he.update_lines()
                         # return
@@ -399,6 +426,11 @@ init -1400 python in _console:
         if persistent._console_line_history is not None:
             console.line_history.extend(persistent._console_line_history)
 
+
+# region Screen funcs
+
+# TODO organize these
+
 init python:
     import itertools
     import linecache
@@ -469,6 +501,8 @@ init python:
 
     def watch_at_list(tag, layer="master"):
         return renpy.get_at_list(tag, layer)
+
+
 
     def get_all_displayables_on_displayable(displayable):
 
@@ -648,7 +682,8 @@ init python:
         input_object.update_text(string, True)
         input_object.per_interact()
 
-    # region autocomplete
+
+    # region Autocomplete
 
     def set_console_autocomplete_text(string=""):
 
@@ -659,16 +694,16 @@ init python:
 
         line = input_object.content
         input_object.caret_pos = len(string)
-        input_object.old_care_pos = len(string)
+        input_object.old_caret_pos = len(string)
         input_object.update_text(string, True)
         input_object.per_interact()
 
 
     def set_input_text(input_object, content=""):
 
-        input_object.caret_pos = len(string)
-        input_object.old_care_pos = len(string)
-        input_object.update_text(string, True)
+        input_object.caret_pos = len(content)
+        input_object.old_caret_pos = len(content)
+        input_object.update_text(content, True)
         input_object.per_interact()
 
     def console_watch_current_input():
@@ -698,10 +733,11 @@ init python:
         if line == "":
             return
 
-        set_console_input_text()
+        # for reasons beyond my ken, this works better - having reset before and after
 
-        # line = value.get_text()
-        # value.set_text("")
+        console.reset()
+
+        set_console_input_text()
 
         console.lines.pop()
         console.lines.append(line)
@@ -722,8 +758,9 @@ init python:
             _console.run(console, lines)
         finally:
             console.backup()
-            renpy.game.context().force_checkpoint = True
-            renpy.exports.checkpoint(hard="not_greedy")
+            # not sure why I'd want to make checkpoints for console stuff
+            # renpy.game.context().force_checkpoint = True
+            # renpy.exports.checkpoint(hard="not_greedy")
         
         return None
 
@@ -740,6 +777,12 @@ init python:
                 action.__call__()
     
     def console_recall_line(console, offset):
+
+        # okay so this is triggered during rollback for some reason
+        # and line_index is included in rollback, so you end up earlier in the history as you move back
+        # which... is... a feature? sure
+
+        # renpy.notify("offset: {} console index: {} console line history: {}".format(offset, console.line_index, len(console.line_history)))
 
         setattr(console, "line_index", min(max(console.line_index + offset, 0), max(len(console.line_history), 0)))
 
@@ -843,6 +886,9 @@ init python:
                 if keywords[-2] in ["show", "hide", "scene"]:
                     available_variables += renpy.display.image.get_available_image_tags()
                     available_variables += ["expression", "screen"]
+                
+                if keywords[-2] in ["jump", "call"]:
+                    available_variables += renpy.get_all_labels()
 
         return sorted(
             [
@@ -1018,8 +1064,11 @@ default persistent.autocomplete_on = True
 default persistent.autocomplete_list = []
 default persistent.autocompleting = False
 default persistent.autocomplete_selection_index = 0
+default persistent.console_minimized = False
+default persistent.console_maximized = False
 
-# the console
+
+# region Console Screen
 
 screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console.console.lines[-1], history=_console.console.history, _transient=False):
     # This screen takes as arguments:
@@ -1035,11 +1084,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
     zorder 1500
     modal False
     roll_forward True
-
-    on "show" action SetVariable(
-        "persistent.console_image_summary_layers",
-        dict(zip(renpy.display.scenelists.ordered_layers, [True for i in range(0, len(renpy.display.scenelists.ordered_layers))])) if len(persistent.console_image_summary_layers) != len(renpy.display.scenelists.ordered_layers) else persistent.console_image_summary_layers
-    )
+    predict False
 
     # default autocomplete_list = []
 
@@ -1072,10 +1117,6 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
 
     default scroll_needed = True
 
-    on "show" action [
-        Function(_console.console.show_stdio), # grabs any stdio output in the buffer
-    ]
-
     default default = (_console.console.line_history[_console.console.line_index][0] if _console.console.line_index < len(_console.console.line_history) else "")  
     default console_input_line = default
     default line = ""
@@ -1105,6 +1146,8 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                 xfill False
 
                 vbox:
+
+                    # region > Titlebar
 
                     fixed as titlebar_fixed:
                         fit_first True
@@ -1316,6 +1359,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     font "code/utilities/console/fonts/NotoSansSymbols-Regular.ttf"
                                     size 28
 
+                    # region > History
 
                     fixed as history_fixed:
                         fit_first True
@@ -1477,6 +1521,8 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 # # $ partitioned_lines.reverse()
                                 # # [["5 + 7"], ["Bob", "b", "5", "8-3", "12"]]
 
+                    # region > Autocomplete
+
                     $ autocomplete_on = _console.autocomplete_on
 
                     if _console.autocomplete_on:
@@ -1503,6 +1549,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                         size absolute(style._console_input_text.size + text_size_adjustment)
                                         caret Null()
 
+                    # region > Input
 
                     fixed as input_fixed:
                         yalign 1.0
@@ -1588,7 +1635,18 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     size 18
                                     outlines [ (absolute(0.5), "#FFF", absolute(0), absolute(0)) ]
 
-    # key "ctrl_K_TAB" action _TouchKeyboardTextInput('  ')
+
+    on "show" action [
+        Function(console_autocomplete_input.disable),
+        Function(_console.console.show_stdio), # grabs any stdio output in the buffer
+        SetVariable(
+            "persistent.console_image_summary_layers",
+            dict(zip(renpy.display.scenelists.ordered_layers, [True for i in range(0, len(renpy.display.scenelists.ordered_layers))])) if len(persistent.console_image_summary_layers) != len(renpy.display.scenelists.ordered_layers) else persistent.console_image_summary_layers
+        ),
+    ]
+    
+    # region Keys
+
     key "K_TAB" action Function(console_handle_tab_keypress)
 
     # watch whatever's in the input box
@@ -1624,12 +1682,15 @@ init python:
 
         persistent.console_image_summary_layers.update({layer: not persistent.console_image_summary_layers[layer]})
 
+# region Layer Picker Screen
+
 screen layer_picker():
 
     tag layer_picker
     layer config.interface_layer
     zorder 2500
     modal True
+    predict False
 
     key "K_ESCAPE" action Hide() capture True
     key "K_TAB" action Hide() capture True
@@ -1671,24 +1732,27 @@ screen layer_picker():
                         action [Function(toggle_image_summary_layer, layer_name)]
 
 
+# region Console Command Eater
+
 # invisible button that eats console show commands
 # (to prevent jumping to the _console label)
 
 screen show_console_button():
     layer config.interface_layer
-
     zorder 10000
+    predict False
 
     $ button_action = Show("_console")
 
     if renpy.get_screen("_console") is None:
-        key "shift_K_O" action NullAction() capture True
+        key "shift_K_o" action NullAction() capture True
         key "console" action button_action capture True
 
-# init python:
-#     config.overlay_screens.append("show_console_button")
+init python:
+    config.always_shown_screens.append("show_console_button")
 
-# the watch screen
+
+# region Watch Screen
 
 init python:
     from pprint import pprint
@@ -1719,11 +1783,6 @@ screen _trace_screen():
                                 expressions.append(item)
                     for expr in expressions:
                         python:
-                            # if persistent._console_traced_short:
-                            #     repr_func = _console.traced_aRepr.repr
-                            # else:
-                            #     repr_func = repr
-
                             nopf = False
                             new_expr = expr
 
@@ -1738,7 +1797,6 @@ screen _trace_screen():
                                     value = pformat(eval(new_expr))
                             except Exception:
                                 value = "eval failed"
-                            # del repr_func
 
                         button:
                             background "#0009"
@@ -1748,7 +1806,7 @@ screen _trace_screen():
                             action Function(unwatch_thoroughly, expr)
 
 
-### The keybind screen actually intercepts the show_console event, so this never actually get called
+### The keybind screen actually intercepts the show_console event, so this should never actually get called
 
 # The label that is called by _console.enter to actually run the console.
 # This can be called in the current context (for normal Ren'Py code) or
@@ -1756,7 +1814,7 @@ screen _trace_screen():
 label _my_console:
 
     python:
-        _console.console_restore_from_persistent(_console.console)
+        # _console.console_restore_from_persistent(_console.console)
         # _console.console.show_stdio()
         renpy.show_screen("_console")
 
@@ -1765,9 +1823,6 @@ label _my_console:
 label _my_console_return:
 
     return
-
-
-
 
 
 
