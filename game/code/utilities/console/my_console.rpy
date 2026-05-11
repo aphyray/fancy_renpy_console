@@ -1636,6 +1636,10 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     outlines [ (absolute(0.5), "#FFF", absolute(0), absolute(0)) ]
 
 
+    python:
+        if len(_console.stdio_lines) > 0:
+            _console.console.show_stdio()
+
     on "show" action [
         Function(console_autocomplete_input.disable),
         Function(_console.console.show_stdio), # grabs any stdio output in the buffer
@@ -1664,6 +1668,8 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
 
     key "anyrepeat_K_UP" action Function(update_autocomplete_list_position_and_text, offset_by=-1, _update_screens=False)
     key "anyrepeat_K_DOWN" action Function(update_autocomplete_list_position_and_text, offset_by=1, _update_screens=False)
+
+    # timer 0.2 repeat True action If(len(_console.stdio_lines) > 0, Notify("there's some text to collect"))
 
     # key "console_older" action Function(console_recall_line, _console.console, -1)
     # key "console_newer" action Function(console_recall_line, _console.console, +1)
