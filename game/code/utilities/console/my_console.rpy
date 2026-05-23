@@ -27,7 +27,50 @@ default persistent.console_image_summary_layers = dict(zip(renpy.display.sceneli
 define config.label_overrides = {
     "_console": "_my_console",
     "_console_return": "_my_console_return",
+    "_save_reload_game": "_my_save_reload_game",
     }
+
+# something I've done has made the default reload sequence break. I have no idea. possibly from adding the bug report stuff?
+
+label _my_save_reload_game:
+    python hide:
+
+        renpy.music.stop()
+
+        if renpy.session.get("_reload_slot", None) and renpy.can_load(renpy.session["_reload_slot"]):
+            renpy.utter_restart()
+
+        if (renpy.game.log is None) or (renpy.game.log.current is None):
+            renpy.utter_restart()
+
+        renpy.session["_reload_slot"] = "_reload-1"
+
+        import time
+        renpy.session["_reload_time"] = time.time()
+
+        # seems to really hate taking screenshots. commenting this out stops strange errors on auto-reload
+
+        for i in config.bottom_layers + config.layers + config.top_layers:
+            renpy.scene(layer=i)
+
+        ui.add(Solid((0, 0, 0, 255)))
+        ui.text("Saving game...",
+                size=32, xalign=0.5, yalign=0.5, color="#fff", style="_text")
+
+        # ui.pausebehavior(0)
+        # ui.interact(suppress_overlay=True, suppress_underlay=True)
+
+        # renpy.take_screenshot((config.thumbnail_width, config.thumbnail_height))
+        renpy.save("_reload-1", "reload save game")
+
+        ui.add(Solid((0, 0, 0, 255)))
+        ui.text("Reloading script...",
+                size=32, xalign=0.5, yalign=0.5, color="#fff", style="_text")
+
+        # ui.pausebehavior(0)
+        # ui.interact(suppress_overlay=True, suppress_underlay=True)
+
+        renpy.utter_restart()
 
 
 # region Styles
@@ -223,10 +266,29 @@ init -1400 python in _console:
         try:
             if len(parsed) > 0:
                 # remove Return nodes, or the current context gets nuked
+                # also add in window hide and with None before any Say nodes
                 nodes = [
                     node
                     for node in parsed
                     if include_return or type(node) != renpy.ast.Return
+                ]
+
+                # need to handle situation where the node is type Say
+                # because unless the current say screen is re-shown, it won't use cps on it
+                # so need to prepend:
+                # window hide
+                # with None
+                nodes = [
+                    node
+                    for sublist in [
+                            [
+                                renpy.parser.parse_block(renpy.lexer.lex_string("window hide", advance=False))[0],
+                                renpy.parser.parse_block(renpy.lexer.lex_string("with None", advance=False))[0],
+                                item
+                            ] if type(item) == renpy.ast.Say else [item]
+                            for item in nodes
+                        ]
+                        for node in sublist
                 ]
 
                 for i, node in enumerate(nodes[0:-1]):
@@ -328,6 +390,7 @@ init -1400 python in _console:
 
                     except Exception as e:
                         error = e
+                        pass
                         # if verbose:
                         #     error = str("\n".join(traceback.format_exception(e)))
                         # else:
@@ -1084,7 +1147,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
     zorder 1500
     modal False
     roll_forward True
-    predict False
+    # predict False
 
     # default autocomplete_list = []
 
@@ -1696,7 +1759,7 @@ screen layer_picker():
     layer config.interface_layer
     zorder 2500
     modal True
-    predict False
+    # predict False
 
     key "K_ESCAPE" action Hide() capture True
     key "K_TAB" action Hide() capture True
@@ -1745,13 +1808,13 @@ screen layer_picker():
 
 screen show_console_button():
     layer config.interface_layer
-    zorder 10000
-    predict False
+    zorder 100000000
+    # predict False
 
     $ button_action = Show("_console")
 
     if renpy.get_screen("_console") is None:
-        key "shift_K_o" action NullAction() capture True
+        key "shift_K_o" action NullAction() # capture True
         key "console" action button_action capture True
 
 init python:
