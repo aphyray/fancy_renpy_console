@@ -18,7 +18,7 @@ default _console.suppressed_error_patterns = [
 ]
 default persistent.reticle_watch_on = False
 default persistent.console_minimized = False
-default persistent.console_bounds = (absolute(1200.0), absolute(80.0), absolute(600.0), absolute(800.0))
+default persistent.console_bounds = (absolute(200.0), absolute(80.0), absolute(600.0), absolute(800.0))
 default persistent.console_history_display_limit = 100
 default persistent.text_size_adjustment = 0
 
@@ -507,7 +507,7 @@ init python:
 
 
     def dragged_console_resizer(drags=None, drop=None):
-        persistent.console_bounds = (absolute(persistent.console_bounds[0]), absolute(persistent.console_bounds[1]), absolute(max(400, persistent.console_bounds[2] + drags[0].x)), absolute(max(300, persistent.console_bounds[3] + drags[0].y)))
+        persistent.console_bounds = (absolute(persistent.console_bounds[0]), absolute(persistent.console_bounds[1]), absolute(max(600, persistent.console_bounds[2] + drags[0].x)), absolute(max(300, persistent.console_bounds[3] + drags[0].y)))
         drags[0].snap(0, 0, 0, _warper.easein_elastic)
         # Scroll("history_viewport", "vertical increase", 20000.0, 0.01).__call__()
         renpy.restart_interaction()
@@ -769,7 +769,11 @@ init python:
         input_object.update_text(content, True)
         input_object.per_interact()
 
-    def console_watch_current_input():
+    def console_watch_current_input(wrap_in=None):
+        # wrap_in can be 'vars', 'dir', 'full_dir', 'nopf'
+        # if a list, wraps will be applied in reverse order
+        # eg: ["nopf", "vars"] will wrap a command like renpy.music.get_playing() like so:
+        # nopf(vars(renpy.music.get_playing())) 
 
         text_value = get_console_input_text()
         
@@ -778,6 +782,15 @@ init python:
             text_value = _console.console.line_history[-1][0] if len(_console.console.line_history) > 0 else ""
 
         if text_value != "":
+            if wrap_in is not None:
+                if type(wrap_in) is str:
+                    if not text_value.startswith(wrap_in):
+                        text_value = "{}{}{}{}".format(wrap_in, "(", text_value, ")")
+                if type(wrap_in) is list:
+                    for wrapper in reversed(wrap_in):
+                        if not text_value.startswith(wrapper):
+                            text_value = "{}{}{}{}".format(wrapper, "(", text_value, ")")
+
             renpy.watch(text_value)
             set_console_input_text()
 
@@ -1079,7 +1092,7 @@ init python:
             _TouchKeyboardTextInput('  ').__call__()
 
 
-    def console_handle_return_keypress():
+    def console_handle_return_keypress(history_scroll_adjustment, wrap_in=None):
         if len(persistent.autocomplete_list) > 0:
         
             input_text = get_console_input_text()
@@ -1089,6 +1102,19 @@ init python:
             set_console_input_text(completed_statement)
 
             if(input_text == completed_statement):
+
+                if wrap_in is not None:
+                    text_value = input_text
+                    if type(wrap_in) is str:
+                        if not text_value.startswith(wrap_in):
+                            text_value = "{}{}{}{}".format(wrap_in, "(", text_value, ")")
+                    if type(wrap_in) is list:
+                        for wrapper in reversed(wrap_in):
+                            if not text_value.startswith(wrapper):
+                                text_value = "{}{}{}{}".format(wrapper, "(", text_value, ")")
+                    
+                    set_console_input_text(text_value)
+
                 console_process_input(_console.console)
                 _console.console.show_stdio()
         
@@ -1096,13 +1122,25 @@ init python:
 
         else:
         
+            text_value = get_console_input_text()
+
+            if text_value == "":
+                text_value = _console.console.line_history[-1][0] if len(_console.console.line_history) > 0 else ""
+
+            if text_value != "" and wrap_in is not None:
+                if type(wrap_in) is str:
+                    if not text_value.startswith(wrap_in):
+                        text_value = "{}{}{}{}".format(wrap_in, "(", text_value, ")")
+                if type(wrap_in) is list:
+                    for wrapper in reversed(wrap_in):
+                        if not text_value.startswith(wrapper):
+                            text_value = "{}{}{}{}".format(wrapper, "(", text_value, ")")
+                
+                set_console_input_text(text_value)
+
             console_process_input(_console.console)
             _console.console.show_stdio()
-
-            # Function(console_process_input, _console.console),
-            # Function(_console.console.show_stdio), # grabs any stdio output in the buffer
-            # Scroll("history_viewport", "vertical increase", -100000000.0, 0.0),
-            
+            history_scroll_adjustment.change(0)
 
 screen autocomplete_widget():
     layer config.interface_layer
@@ -1130,6 +1168,17 @@ default persistent.autocomplete_selection_index = 0
 default persistent.console_minimized = False
 default persistent.console_maximized = False
 
+init python:
+
+    def full_dir(object):
+        property_dict = {}
+        for prop in sorted(dir(object)):
+            try:
+                property_dict.update({prop: str(getattr(object, prop))})
+                # print(prop + ": " + str(getattr(object, prop)))
+            except:
+                pass
+        return property_dict
 
 # region Console Screen
 
@@ -1454,7 +1503,6 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 vscrollbar_bar_vertical True
                                 vscrollbar_bar_invert True
 
-
                                 # limit display to prevent horrendous lag
 
                                 for i, he in enumerate(history[-min(history_limit, len(history)):]):
@@ -1626,6 +1674,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                             yalign 1.0
                             button:
                                 action Function(console_watch_current_input)
+                                alternate Function(console_watch_current_input, wrap_in="full_dir")
                                 background "#213C"
                                 xalign 0.5
                                 yalign 1.0
@@ -1703,7 +1752,11 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
         if len(_console.stdio_lines) > 0:
             _console.console.show_stdio()
 
+    # this delay combined with the disabling on show deals with some odd behaviour during auto-reloads
+    timer 0.1 action Function(console_input.enable)
+
     on "show" action [
+        Function(console_input.disable),
         Function(console_autocomplete_input.disable),
         Function(_console.console.show_stdio), # grabs any stdio output in the buffer
         SetVariable(
@@ -1711,19 +1764,23 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
             dict(zip(renpy.display.scenelists.ordered_layers, [True for i in range(0, len(renpy.display.scenelists.ordered_layers))])) if len(persistent.console_image_summary_layers) != len(renpy.display.scenelists.ordered_layers) else persistent.console_image_summary_layers
         ),
     ]
-    
+
     # region Keys
 
     key "K_TAB" action Function(console_handle_tab_keypress)
 
-    # watch whatever's in the input box
-    key "ctrl_K_RETURN" action Function(console_watch_current_input)
+    # alt wraps whatever's in the input box in full_dir()
 
+    # watch whatever's in the input box
+    key "ctrl_noshift_K_RETURN" action Function(console_watch_current_input)
+    key "ctrl_alt_K_RETURN" action Function(console_watch_current_input, wrap_in="full_dir")
+
+    # autocomplete and execute whatever's in the input box
     key "noshift_K_RETURN" action [
-        Function(console_handle_return_keypress),
-        # Function(console_process_input, _console.console),
-        # Function(_console.console.show_stdio), # grabs any stdio output in the buffer
-        # Scroll("history_viewport", "vertical increase", -100000000.0, 0.0),
+        Function(console_handle_return_keypress, history_scroll_adjustment=history_scroll_adjustment),
+    ]
+    key "alt_K_RETURN" action [
+        Function(console_handle_return_keypress, history_scroll_adjustment=history_scroll_adjustment, wrap_in="full_dir"),
     ]
 
     key "console_exit" action Function(console_handle_escape, exit_action)
@@ -1814,7 +1871,7 @@ screen show_console_button():
     $ button_action = Show("_console")
 
     if renpy.get_screen("_console") is None:
-        key "shift_K_o" action NullAction() # capture True
+        key "shift_K_o" action NullAction() capture True
         key "console" action button_action capture True
 
 init python:
@@ -1827,52 +1884,108 @@ init python:
     from pprint import pprint
     from pprint import pformat
 
+init python:
+    import pygame
+
+    def copy_to_clipboard(s):
+        # pygame.scrap.put(pygame.SCRAP_TEXT, "Hi".encode("utf-8"))
+        pygame.scrap.put(pygame.SCRAP_TEXT, str(s).encode("utf-8"))
+
+default persistent.trace_maximized = False
+
 screen _trace_screen():
 
-    layer "notify"
-    zorder 1501
+    layer config.interface_layer
+    zorder 1400
+    default text_to_copy = None
+    # layer "notify"
+    # zorder 1501
+    if text_to_copy is not None:
+        $ copy_to_clipboard(text_to_copy)
+        $ text_to_copy = None
 
     if _console.traced_expressions:
 
-        viewport:
-            mousewheel True
-            xmaximum 0.33
-            frame style "_console_trace":
-                background None
-                pos (0, 0)
-                anchor (0, 0)
-                padding (20, 0, 0, 20)
+        frame:
+            background None
+            padding (0, 0)
+            xmaximum (0.33 if not persistent.trace_maximized else 1.0)
+            viewport:
+                mousewheel True
+                frame style "_console_trace":
+                    background None
+                    pos (0, 0)
+                    anchor (0, 0)
+                    padding (20, 0, 0, 20)
 
-                vbox:
-                    spacing 20
-                    python:
-                        expressions = []
-                        for item in _console.traced_expressions:
-                            if item not in expressions:
-                                expressions.append(item)
-                    for expr in expressions:
+                    vbox:
+                        spacing 20
                         python:
-                            nopf = False
-                            new_expr = expr
+                            expressions = []
+                            for item in _console.traced_expressions:
+                                if item not in expressions:
+                                    expressions.append(item)
+                        for expr in expressions:
+                            python:
+                                nopf = False
+                                new_expr = expr
 
-                            if new_expr.startswith("nopf"):
-                                new_expr = new_expr[5:-1]
-                                nopf = True
+                                if new_expr.startswith("nopf"):
+                                    new_expr = new_expr[5:-1]
+                                    nopf = True
 
-                            try:
-                                if nopf:
-                                    value = eval(new_expr)
-                                else:
-                                    value = pformat(eval(new_expr))
-                            except Exception:
-                                value = "eval failed"
+                                try:
+                                    if nopf:
+                                        value = eval(new_expr)
+                                    else:
+                                        value = pformat(eval(new_expr))
+                                except Exception:
+                                    value = "eval failed"
 
-                        button:
-                            background "#0009"
-                            vbox:
-                                text "[new_expr!q]: " style "_console_trace_var"
-                                text "[value!q]" style "_console_trace_value"
-                            action Function(unwatch_thoroughly, expr)
+                            button:
+                                background "#0009"
+                                xfill True
+                                vbox:
+                                    text "[new_expr!q]: " style "_console_trace_var"
+                                    text "[value!q]" style "_console_trace_value"
+                                action Function(unwatch_thoroughly, expr)
+                                alternate Notify("Copied watch to clipboard."), SetScreenVariable("text_to_copy", "{}\n\n{}".format(new_expr, value))
+
+
+            button:
+
+                action ToggleField(persistent, "trace_maximized")
+
+                at transform:
+                    xzoom (1.0 if not persistent.trace_maximized else -1.0)
+                    yzoom (-1.0 if not persistent.trace_maximized else 1.0)
+                background None
+                xysize (36, 36)
+                align (1.0, 0.0)
+                offset ((-20, 20) if not persistent.trace_maximized else (-40, 20))
+
+                text "◿":
+                    xalign 0.5
+                    yalign 0.5
+                    xoffset -4
+                    style "_console_text"
+                    color "#FFFFFF"
+                    font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                    prefer_emoji False
+                    size 36
+                    outlines [ (absolute(0.75), "#FFF", absolute(0), absolute(0)) ]
+
+                text "◿":
+                    xalign 0.5
+                    yalign 0.5
+                    xoffset 2
+                    yoffset 3
+                    style "_console_text"
+                    color "#FFFFFF"
+                    font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                    prefer_emoji False
+                    size 18
+                    outlines [ (absolute(0.5), "#FFF", absolute(0), absolute(0)) ]
 
 
 ### The keybind screen actually intercepts the show_console event, so this should never actually get called
