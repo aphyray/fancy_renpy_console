@@ -877,6 +877,7 @@ init python:
 
     
     def unwatch_thoroughly(expression):
+        renpy.notify(expression)
         while expression in _console.traced_expressions:
             renpy.unwatch(expression)
 
@@ -1891,18 +1892,19 @@ init python:
         # pygame.scrap.put(pygame.SCRAP_TEXT, "Hi".encode("utf-8"))
         pygame.scrap.put(pygame.SCRAP_TEXT, str(s).encode("utf-8"))
 
+    def copy_expression_and_result_to_clipboard(expression):
+        value = pformat(eval(expression))
+        clipboard_string = r"""{}
+
+{}""".format(expression, str(value))
+        copy_to_clipboard(clipboard_string)
+
 default persistent.trace_maximized = False
 
 screen _trace_screen():
 
     layer config.interface_layer
     zorder 1400
-    default text_to_copy = None
-    # layer "notify"
-    # zorder 1501
-    if text_to_copy is not None:
-        $ copy_to_clipboard(text_to_copy)
-        $ text_to_copy = None
 
     if _console.traced_expressions:
 
@@ -1942,14 +1944,14 @@ screen _trace_screen():
                                 except Exception:
                                     value = "eval failed"
 
-                            button:
+                            button as b:
                                 background "#0009"
                                 xfill True
                                 vbox:
                                     text "[new_expr!q]: " style "_console_trace_var"
                                     text "[value!q]" style "_console_trace_value"
                                 action Function(unwatch_thoroughly, expr)
-                                alternate Notify("Copied watch to clipboard."), SetScreenVariable("text_to_copy", "{}\n\n{}".format(new_expr, value))
+                                alternate Notify("Copied watch to clipboard."), Function(copy_expression_and_result_to_clipboard, new_expr)
 
 
             button:
@@ -1962,7 +1964,7 @@ screen _trace_screen():
                 background None
                 xysize (36, 36)
                 align (1.0, 0.0)
-                offset ((-20, 20) if not persistent.trace_maximized else (-40, 20))
+                offset ((-20, 20) if not persistent.trace_maximized else (-30, 30))
 
                 text "◿":
                     xalign 0.5
