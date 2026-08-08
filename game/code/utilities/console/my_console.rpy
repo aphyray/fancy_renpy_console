@@ -877,7 +877,6 @@ init python:
 
     
     def unwatch_thoroughly(expression):
-        renpy.notify(expression)
         while expression in _console.traced_expressions:
             renpy.unwatch(expression)
 
