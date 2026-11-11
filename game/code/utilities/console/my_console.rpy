@@ -1024,7 +1024,7 @@ init python:
             except:
                 pass
 
-        if current_leaf != "" and keywords[-1] == current_leaf:
+        if keywords[-1] == current_leaf:
 
             available_variables += keyword.kwlist # python keywords
 
