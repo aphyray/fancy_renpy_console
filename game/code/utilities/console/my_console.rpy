@@ -1,25 +1,28 @@
-# allows the console to appears even in menues
-define config.top_layers = config.top_layers + [
-    "console",
-    "notify",
-]
+﻿init -999:
+
+    # allows the console to appears even in menues
+
+    define config.top_layers = config.top_layers + [
+        "console",
+        "notify",
+    ]
 
 define config.interface_layer = "console"
 
-define config.console_history_size = 50
+define config.console_history_size = 100
 
 default _console.reticle_callback = notify_tag_attributes
 default _console.reticle_callback_alternate = watch_tag_attributes
 default _console.verbose = False
-default _console.autocomplete_on = True
+default persistent.autocomplete_on = True
 default _console.suppressed_error_patterns = [
     "Exception: Cannot start an interaction in the middle of an interaction, without creating a new context.",
     # "TypeError: exec() arg 1 must be a string, bytes or code object",
 ]
 default persistent.reticle_watch_on = False
 default persistent.console_minimized = False
-default persistent.console_bounds = (absolute(200.0), absolute(80.0), absolute(600.0), absolute(800.0))
-default persistent.console_history_display_limit = 100
+default persistent.console_bounds = (absolute(int(config.screen_width * 0.35)), absolute(80.0), absolute(int(config.screen_width * 0.30)), absolute(800.0))
+default persistent.console_history_display_limit = 250
 default persistent.text_size_adjustment = 0
 
 default persistent.console_image_summary_layers = dict(zip(renpy.display.scenelists.ordered_layers, [True for i in range(0, len(renpy.display.scenelists.ordered_layers))]))
@@ -27,50 +30,50 @@ default persistent.console_image_summary_layers = dict(zip(renpy.display.sceneli
 define config.label_overrides = {
     "_console": "_my_console",
     "_console_return": "_my_console_return",
-    "_save_reload_game": "_my_save_reload_game",
+    # "_save_reload_game": "_my_save_reload_game",
     }
 
 # something I've done has made the default reload sequence break. I have no idea. possibly from adding the bug report stuff?
 
-label _my_save_reload_game:
-    python hide:
+# label _my_save_reload_game:
+#     python hide:
 
-        renpy.music.stop()
+#         renpy.music.stop()
 
-        if renpy.session.get("_reload_slot", None) and renpy.can_load(renpy.session["_reload_slot"]):
-            renpy.utter_restart()
+#         if renpy.session.get("_reload_slot", None) and renpy.can_load(renpy.session["_reload_slot"]):
+#             renpy.utter_restart()
 
-        if (renpy.game.log is None) or (renpy.game.log.current is None):
-            renpy.utter_restart()
+#         if (renpy.game.log is None) or (renpy.game.log.current is None):
+#             renpy.utter_restart()
 
-        renpy.session["_reload_slot"] = "_reload-1"
+#         renpy.session["_reload_slot"] = "_reload-1"
 
-        import time
-        renpy.session["_reload_time"] = time.time()
+#         import time
+#         renpy.session["_reload_time"] = time.time()
 
-        # seems to really hate taking screenshots. commenting this out stops strange errors on auto-reload
+#         # seems to really hate taking screenshots. commenting this out stops strange errors on auto-reload
 
-        for i in config.bottom_layers + config.layers + config.top_layers:
-            renpy.scene(layer=i)
+#         for i in config.bottom_layers + config.layers + config.top_layers:
+#             renpy.scene(layer=i)
 
-        ui.add(Solid((0, 0, 0, 255)))
-        ui.text("Saving game...",
-                size=32, xalign=0.5, yalign=0.5, color="#fff", style="_text")
+#         ui.add(Solid((0, 0, 0, 255)))
+#         ui.text("Saving game...",
+#                 size=32, xalign=0.5, yalign=0.5, color="#fff", style="_text")
 
-        # ui.pausebehavior(0)
-        # ui.interact(suppress_overlay=True, suppress_underlay=True)
+#         # ui.pausebehavior(0)
+#         # ui.interact(suppress_overlay=True, suppress_underlay=True)
 
-        # renpy.take_screenshot((config.thumbnail_width, config.thumbnail_height))
-        renpy.save("_reload-1", "reload save game")
+#         # renpy.take_screenshot((config.thumbnail_width, config.thumbnail_height))
+#         renpy.save("_reload-1", "reload save game")
 
-        ui.add(Solid((0, 0, 0, 255)))
-        ui.text("Reloading script...",
-                size=32, xalign=0.5, yalign=0.5, color="#fff", style="_text")
+#         ui.add(Solid((0, 0, 0, 255)))
+#         ui.text("Reloading script...",
+#                 size=32, xalign=0.5, yalign=0.5, color="#fff", style="_text")
 
-        # ui.pausebehavior(0)
-        # ui.interact(suppress_overlay=True, suppress_underlay=True)
+#         # ui.pausebehavior(0)
+#         # ui.interact(suppress_overlay=True, suppress_underlay=True)
 
-        renpy.utter_restart()
+#         renpy.utter_restart()
 
 
 # region Styles
@@ -90,7 +93,7 @@ init -1500:
     style _console_text is _default:
         color "#FFF"
         size 18
-        font "code/utilities/console/fonts/AzeretMono-Regular.ttf"
+        font "_code/utilities/console/fonts/AzeretMono-Regular.ttf"
         adjust_spacing False
         antialias False
         font_features { "liga": False, "clig" : False }
@@ -116,14 +119,14 @@ init -1500:
 
     style _console_command_text is _console_text:
         color "#FFFC"
-        font "code/utilities/console/fonts/AzeretMono-Italic.ttf"
+        font "_code/utilities/console/fonts/AzeretMono-Italic.ttf"
         # italic True
 
     style _console_result_text is _console_text
 
     style _console_error_text is _console_text:
         color "#f98a8aff"
-        font "code/utilities/console/fonts/AzeretMono-SemiBold.ttf"
+        font "_code/utilities/console/fonts/AzeretMono-SemiBold.ttf"
 
     style _console_trace is _default:
         background "#0004"
@@ -136,12 +139,12 @@ init -1500:
 
     style _console_trace_text is _default:
         color "#FFF"
-        font "code/utilities/console/fonts/AzeretMono-Regular.ttf"
+        font "_code/utilities/console/fonts/AzeretMono-Regular.ttf"
         size 16
 
     style _console_trace_var is _console_trace_text:
         color "#FFF9"
-        font "code/utilities/console/fonts/AzeretMono-Italic.ttf"
+        font "_code/utilities/console/fonts/AzeretMono-Italic.ttf"
         bold False
         
     style _console_trace_value is _console_trace_text
@@ -152,6 +155,7 @@ init -1500:
 init -1400 python in _console:
 
     import traceback
+    import functools
 
     class BoundedList(NoRollback, list):
         """
@@ -237,6 +241,7 @@ init -1400 python in _console:
 
             pass
 
+    @functools.cache
     def is_renpy_statement(line):
         rv = len(renpy.parser.parse_block(renpy.lexer.lex_string(line, advance=False))) > 0
         return rv
@@ -444,7 +449,7 @@ init -1400 python in _console:
             he.update_lines()
             he.is_error = True
 
-        if persistent.console_minimized:
+        if persistent.console_minimized and he.result not in [None, 'None']:
             renpy.notify(he.result)
 
     def enter():
@@ -498,6 +503,8 @@ init python:
     import itertools
     import linecache
     import keyword
+    import functools
+
 
     def dragged_console(drags=None, drop=None):
         # persistent.console_bounds = (absolute(drags[0].x), absolute(drags[0].y), absolute(drags[0].w), absolute(drags[0].h))
@@ -548,11 +555,11 @@ init python:
         return None
 
     def notify_tag_attributes(tag, layer="master"):
-        renpy.notify("None" if tag is None else str(list(itertools.chain([tag], renpy.get_attributes(tag, layer)))))
+        renpy.notify("None" if tag is None else str(python_list(itertools.chain([tag], renpy.get_attributes(tag, layer)))))
         return None
 
     def watch_tag(tag, layer="master"):
-        return "None" if tag is None else " ".join(list(itertools.chain([tag], renpy.get_attributes(tag, layer))))
+        return "None" if tag is None else " ".join(python_list(itertools.chain([tag], renpy.get_attributes(tag, layer))))
 
     def watch_tag_attributes(tag, layer="master"):
         if tag is None:
@@ -565,13 +572,11 @@ init python:
     def watch_at_list(tag, layer="master"):
         return renpy.get_at_list(tag, layer)
 
-
-
     def get_all_displayables_on_displayable(displayable):
 
-        displayables = []
+        displayables = python_list([])
 
-        displayable.visit_all(lambda d: displayables.append(d))
+        displayable.visit_all(renpy.partial(displayables.append))
 
         return displayables
 
@@ -600,13 +605,13 @@ init python:
 
     def get_image_attributes_summary():
 
-        output_strings = []
+        output_strings = python_list([])
 
         for layer in renpy.display.scenelists.ordered_layers:
             hidden = renpy.get_hidden_tags(layer)
             showing = renpy.get_showing_tags(layer, sort=True)
             transforms = renpy.layer_has_transforms(layer)
-            transform_list = []
+            transform_list = python_list([])
 
             if transforms.at_list:
                 transform_list.append("show layer")
@@ -652,7 +657,7 @@ init python:
 
     def get_image_summary(layers=None):
 
-        output_strings = []
+        output_strings = python_list([])
 
         if layers is None:
             layers = [ layer_name for layer_name in persistent.console_image_summary_layers if persistent.console_image_summary_layers[layer_name] ]
@@ -661,7 +666,7 @@ init python:
             hidden = renpy.get_hidden_tags(layer)
             showing = renpy.get_showing_tags(layer, sort=True)
             transforms = renpy.layer_has_transforms(layer)
-            transform_list = []
+            transform_list = python_list([])
 
             if transforms.at_list:
                 transform_list.append("show layer")
@@ -706,7 +711,7 @@ init python:
     def image_summary(layers=None):
         return "\n".join(get_image_summary(layers))
 
-
+    @functools.cache
     def get_script_lines(filename):
 
         filename = renpy.exports.unelide_filename(filename)
@@ -722,8 +727,25 @@ init python:
         return data
 
     # loc is a tuple with (path, line_number)
+    @functools.cache
     def get_line_from_loc(loc):
         return get_script_lines(loc[0]).splitlines()[loc[1]]
+
+    def get_console_input_caret_position():
+        try:
+            return renpy.get_screen_variable("console_input", "_console").caret_pos
+        except:
+            return None
+    
+    def is_caret_at_end_of_line():
+        return get_console_input_caret_position() == len(get_console_input_text())
+
+    def get_console_input_leaf():
+        console_input_text = get_console_input_text()
+        return re.split(r'\W', console_input_text)[-1]
+
+    def is_caret_on_leaf(caret_offset=0):
+        return get_console_input_caret_position() >= len(get_console_input_text()) - len(get_console_input_leaf()) + caret_offset
 
     def get_console_input_text():
 
@@ -741,7 +763,7 @@ init python:
 
         # line = input_object.content
         input_object.caret_pos = len(string)
-        input_object.old_care_pos = len(string)
+        input_object.old_caret_pos = len(string)
         input_object.update_text(string, True)
         input_object.per_interact()
 
@@ -752,14 +774,14 @@ init python:
 
         try:
             input_object = renpy.get_screen_variable("console_autocomplete_input", "_console")
+            line = input_object.content
+            input_object.caret_pos = len(string)
+            input_object.old_caret_pos = len(string)
+            input_object.update_text(string, True)
+            input_object.per_interact()
         except:
             return
 
-        line = input_object.content
-        input_object.caret_pos = len(string)
-        input_object.old_caret_pos = len(string)
-        input_object.update_text(string, True)
-        input_object.per_interact()
 
 
     def set_input_text(input_object, content=""):
@@ -849,7 +871,7 @@ init python:
         elif get_console_input_text() != "":
             set_console_input_text()
         else:
-            for action in [] + exit_action:
+            for action in python_list([]) + exit_action:
                 action.__call__()
     
     def console_recall_line(console, offset):
@@ -880,18 +902,39 @@ init python:
         while expression in _console.traced_expressions:
             renpy.unwatch(expression)
 
-    
-    def get_lines_from_text_displayable(text_displayable, width=500):
+    # @functools.cache
+    # def get_lines_from_text_displayable(text_displayable, width=500):
         
+    #     text_displayable.update() # creates tokens, which Layout requires
+
+    #     layout = renpy.text.text.Layout(text_displayable, width, 0, None, drawable_res=False)
+
+    #     lines = python_list([])
+
+    #     for line in layout.lines:
+    #         lines.append("".join([ chr(g.character) for g in line.glyphs ]))
+        
+    #     return lines
+
+    @functools.cache
+    def get_lines_from_string(string, width, text_size_adjustment, substitute=False, style="current_style"):
+        
+        # text_size_adjustment to help with caching
+
+        text_displayable = Text(string, width=width, substitute=substitute, style=style)
+
         text_displayable.update() # creates tokens, which Layout requires
 
         layout = renpy.text.text.Layout(text_displayable, width, 0, None, drawable_res=False)
 
-        lines = []
+        lines = python_list([])
 
         for line in layout.lines:
             lines.append("".join([ chr(g.character) for g in line.glyphs ]))
         
+        del text_displayable
+        del layout
+
         return lines
 
     # def refresh_console():
@@ -906,13 +949,15 @@ init python:
     # used for fuzzy matching and sorting with .ratio()
     from difflib import SequenceMatcher
 
-    def fuzzy_match_sorter(big_string, small_string):
-        big_string = str.casefold(big_string)
-        small_string = str.casefold(small_string)
-        # "00000big_string" when there's a partial match right at the start
-        # "00009big_string" when there's a 0.9 fuzzy ratio - x10 to group into rough categories and then alphabetically 
-        return "00000" + big_string if big_string.startswith(small_string) else "{:05d}{}".format(10 - int(10*SequenceMatcher(None, small_string, big_string).ratio()), big_string)
+    # @functools.cache
+    # def fuzzy_match_sorter(big_string, small_string):
+    #     big_string = str.casefold(big_string)
+    #     small_string = str.casefold(small_string)
+    #     # "00000big_string" when there's a partial match right at the start
+    #     # "00009big_string" when there's a 0.9 fuzzy ratio - x10 to group into rough categories and then alphabetically 
+    #     return "00000" + big_string if big_string.startswith(small_string) else "{:05d}{}".format(10 - int(10*SequenceMatcher(None, small_string, big_string).ratio()), big_string)
 
+    @functools.cache
     def fuzzy_match_sorter(big_string, small_string):
         lower_big_string = str.casefold(big_string)
         lower_small_string = str.casefold(small_string)
@@ -935,28 +980,57 @@ init python:
             )
         )
 
+    @functools.cache
+    def get_sorted_variables(variable_list, current_leaf):
+        return tuple(sorted(
+            [
+                item for item in python_list(python_set(variable_list))
+                if not item[0:2] == "__" and len(current_leaf) <= len(item) and ( current_leaf == "" or item.lower().startswith(current_leaf.lower()) or SequenceMatcher(None, current_leaf.lower(), item.lower()).ratio() > 0.65 )
+            ],
+            key=renpy.partial(fuzzy_match_sorter, small_string=current_leaf)
+        ))
+
+    def is_object_function_like(obj):
+        return hasattr(obj, "__call__")
+
+    def does_function_have_args(func):
+        signature = str(inspect.signature(func))
+        return signature not in ['()', '(self)']
 
     def get_available_variables(line):
         subject = re.split(r'[^\w\.]', line)[-1]
         current_leaf = subject.split('.')[-1]
         keywords = re.split(r'[ ]', line)
-        available_variables = []
-
+        available_variables = python_list([])
 
         if re.match(r'^.*\w.*$', subject):
             try:
                 subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
-                available_variables += list(dir(subject_object))
+
+                for member_name in dir(subject_object):
+                    item_string = member_name
+                    member = getattr(subject_object, member_name)
+                    try:
+                        if is_object_function_like(member):
+                            if does_function_have_args(member):
+                                item_string += '(…)'
+                            else:
+                                item_string += '()'
+                    except:
+                        pass
+
+                    available_variables += [item_string]
+
             except:
                 pass
 
-        if current_leaf != "":
+        if current_leaf != "" and keywords[-1] == current_leaf:
 
             available_variables += keyword.kwlist # python keywords
 
             if subject == current_leaf:
-                available_variables += list(config.console_commands) # renpy console commands
-                available_variables += [i for sub in list(renpy.statements.registry.keys()) for i in sub ] # renpy statements
+                available_variables += python_list(config.console_commands) # renpy console commands
+                available_variables += [i for sub in python_list(renpy.statements.registry.keys()) for i in sub ] # renpy statements
 
             if len(keywords) > 1:
                 if keywords[-2] in ["show", "hide", "scene"]:
@@ -966,32 +1040,37 @@ init python:
                 if keywords[-2] in ["jump", "call"]:
                     available_variables += renpy.get_all_labels()
 
-        return sorted(
-            [
-                item for item in list(set(available_variables))
-                if not item[0:2] == "__" and len(current_leaf) <= len(item) and ( current_leaf == "" or item.lower().startswith(current_leaf.lower()) or SequenceMatcher(None, current_leaf.lower(), item.lower()).ratio() > 0.65 )
-            ],
-            key=renpy.partial(fuzzy_match_sorter, small_string=current_leaf)
-        )
+        return get_sorted_variables(tuple(available_variables), current_leaf)
+
+        # return sorted(
+        #     [
+        #         item for item in list(set(available_variables))
+        #         if not item[0:2] == "__" and len(current_leaf) <= len(item) and ( current_leaf == "" or item.lower().startswith(current_leaf.lower()) or SequenceMatcher(None, current_leaf.lower(), item.lower()).ratio() > 0.65 )
+        #     ],
+        #     key=renpy.partial(fuzzy_match_sorter, small_string=current_leaf)
+        # )
 
     # s1 = ' It was a dark and stormy night. I was all alone sitting on a red chair. I was not completely alone as I had three cats.'
     # s2 = ' It was a murky and stormy night. I was all alone sitting on a crimson chair. I was not completely alone as I had three felines.'
     # SM(None, s1, s2).ratio()
 
-    def handle_input_change(content):
+    def console_handle_input_change(content, caret_offset=0):
 
-        # include_renpy_statements = False
+        persistent.console_input_text = content if content is not None else get_console_input_text()
 
-        persistent.console_input_text = content
-
-        persistent.autocomplete_list.clear()
-        persistent.autocomplete_selection_index = 0
-        update_autocomplete_list_position_and_text()
-
-        if not _console.autocomplete_on:
-            return        
+        try:
+            persistent.autocomplete_list.clear()
+        except:
+            python_list(persistent.autocomplete_list).clear()
         
-        if persistent.autocomplete_on and persistent.console_input_text != "":
+        if content is not None:
+            persistent.autocomplete_selection_index = 0
+            update_autocomplete_list_position_and_text()
+
+        if not persistent.autocomplete_on:
+            return
+
+        if persistent.autocomplete_on and persistent.console_input_text != "" and is_caret_on_leaf(caret_offset):
             # subject = re.split(r'[^\w\.]', persistent.console_input_text)[-1]
             # current_leaf = subject.split('.')[-1]
             # if re.match(r'^.*\w.*$', subject):
@@ -1001,7 +1080,7 @@ init python:
             #         available_variables = list(set(
             #             dir(subject_object) # anything the subject contains
             #             + (
-            #                 [] if subject != current_leaf # when the subject is the current leaf, we don't want to add anything else
+            #                 python_list([]) if subject != current_leaf # when the subject is the current leaf, we don't want to add anything else
             #                 else keyword.kwlist # python keywords
             #                     + list(config.console_commands) # renpy console commands
             #                     + [i for sub in list(renpy.statements.registry.keys()) for i in sub ] # renpy statements
@@ -1018,7 +1097,7 @@ init python:
             #     except:
             #         pass
 
-            persistent.autocomplete_list = get_available_variables(persistent.console_input_text)
+            persistent.autocomplete_list = python_list(get_available_variables(persistent.console_input_text))
 
         persistent.autocompleting = len(persistent.autocomplete_list) > 0
 
@@ -1026,6 +1105,10 @@ init python:
             set_console_autocomplete_text(get_autocomplete_list_with_highlight())
         else:
             set_console_autocomplete_text("")
+
+        # if there's been any new stdio activity since the last check, may as well refresh
+        if len(_console.stdio_lines) > 0:
+            renpy.restart_interaction()
 
     def get_branch_and_leaf_from_incomplete_statement(statement):
         split_by_nonwords = re.split(r'(\W)', statement)
@@ -1068,14 +1151,17 @@ init python:
         return '\n'.join(items)
 
     def update_autocomplete_list_position_and_text(offset_by=0):
-        if _console.autocomplete_on and len(persistent.autocomplete_list) > 0:
+        if persistent.autocomplete_on and len(persistent.autocomplete_list) > 0:
             set_console_autocomplete_text(get_autocomplete_list_with_highlight(offset_by=offset_by))
         elif offset_by != 0:
             console_recall_line(_console.console, offset_by)
             console_clear_autocomplete()
 
     def console_clear_autocomplete():
-        persistent.autocomplete_list.clear()
+        try:
+            persistent.autocomplete_list.clear()
+        except:
+            python_list(persistent.autocomplete_list).clear()
         update_autocomplete_list_position_and_text()
         set_console_autocomplete_text("")
 
@@ -1084,8 +1170,9 @@ init python:
         
             input_text = get_console_input_text()
             branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
+            completed_statement = branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index]
 
-            set_console_input_text(branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index])
+            set_console_input_text(completed_statement.strip(')').strip('.').strip('…'))
         
             console_clear_autocomplete()
         else:
@@ -1099,7 +1186,7 @@ init python:
             branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
             completed_statement = branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index]
 
-            set_console_input_text(completed_statement)
+            set_console_input_text(completed_statement.strip(')').strip('.'))
 
             if(input_text == completed_statement):
 
@@ -1142,6 +1229,16 @@ init python:
             _console.console.show_stdio()
             history_scroll_adjustment.change(0)
 
+    @functools.cache
+    def get_console_line_style(base_style_name, text_size_adjustment):
+        return Style(base_style_name, properties={"size":style[base_style_name].size + text_size_adjustment})
+
+    def update_if_new_stdio_lines():
+        if len(_console.stdio_lines) > 0:
+            renpy.restart_interaction()
+            # _console.console.show_stdio()
+
+
 screen autocomplete_widget():
     layer config.interface_layer
     zorder 100000
@@ -1162,11 +1259,12 @@ screen autocomplete_widget():
 
 default persistent.console_input_text = ""
 default persistent.autocomplete_on = True
-default persistent.autocomplete_list = []
+default persistent.autocomplete_list = python_list([])
 default persistent.autocompleting = False
 default persistent.autocomplete_selection_index = 0
 default persistent.console_minimized = False
 default persistent.console_maximized = False
+default persistent.console_stdio_monitoring_frequency = 2.0
 
 init python:
 
@@ -1179,6 +1277,9 @@ init python:
             except:
                 pass
         return property_dict
+
+    def null():
+        pass
 
 # region Console Screen
 
@@ -1196,12 +1297,12 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
     zorder 1500
     modal False
     roll_forward True
-    # predict False
+    predict False
 
-    # default autocomplete_list = []
+    # default autocomplete_list = python_list([])
 
     python:
-        # autocomplete_list = [] if (get_console_input_text() == "") else sorted(
+        # autocomplete_list = python_list([]) if (get_console_input_text() == "") else sorted(
         #             [
         #                 item for item in autocomplete_options
         #                 if item.lower().startswith(current_leaf.lower())
@@ -1216,14 +1317,19 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
 
         history = _console.console.history
 
-        line_height = int((style["_console_text"].size + persistent.text_size_adjustment)*1.1 + 5)
+        text_size_adjustment = max(-4, persistent.text_size_adjustment)
+        persistent.text_size_adjustment = text_size_adjustment
+
+        line_height = int((style["_console_text"].size + text_size_adjustment)*1.1 + 5)
         history_limit = persistent.console_history_display_limit
         lines_per_row = 25
-        lines_to_print = [] # (line_text, "command"/"result"/"error", clipboard_text)
+        lines_to_print = python_list([]) # (line_text, "command"/"result"/"error", clipboard_text)
 
         history_scroll_adjustment = ui.adjustment(step=-line_height)
 
-        text_size_adjustment = persistent.text_size_adjustment
+        command_style_object = get_console_line_style("_console_command_text", text_size_adjustment)
+        result_style_object = get_console_line_style("_console_result_text", text_size_adjustment)
+        error_style_object = get_console_line_style("_console_error_text", text_size_adjustment)
 
     default reticle_alternate_on = False
 
@@ -1232,6 +1338,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
     default default = (_console.console.line_history[_console.console.line_index][0] if _console.console.line_index < len(_console.console.line_history) else "")  
     default console_input_line = default
     default line = ""
+    default console_autocomplete_input = None
 
     # default console_input_adjust_spacing = False
 
@@ -1309,7 +1416,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                         style "_console_text"
                                         at transform:
                                             yzoom (-1.0 if minimized else 1.0)
-                                        font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                                        font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                                         size 20
                                         outlines [ (absolute(1.0), "#FFF", absolute(0), absolute(0)) ]
                                 button:
@@ -1323,7 +1430,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                         style "_console_text"
                                         at transform:
                                             yoffset 4
-                                        font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                                        font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                                         size 20
                                 button:
                                     action exit_action
@@ -1363,7 +1470,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     yalign 0.5
                                     yoffset 6
                                     style "_console_text"
-                                    font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                                    font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                                     size 36
                                     outlines [ (absolute(1.25), "#000", absolute(0), absolute(0)), (absolute(0.75), "#FFF", absolute(0), absolute(0)) ]
 
@@ -1387,7 +1494,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 yoffset 4
                                 prefer_emoji False
                                 style "_console_text"
-                                font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                                font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                                 size 28
 
                         drag:
@@ -1411,7 +1518,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 yoffset 4
                                 prefer_emoji False
                                 style "_console_text"
-                                font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                                font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                                 size 28
                                 outlines [ (absolute(0.75), "#FFF", absolute(0), absolute(0)) ]
 
@@ -1419,9 +1526,9 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                             draggable False
                             clicked [
                                 # add reshowing/hiding autocomplete panel
-                                ToggleVariable("_console.autocomplete_on"),
+                                ToggleVariable("persistent.autocomplete_on"),
                                 Function(update_autocomplete_list_position_and_text),
-                                Notify("tab completion is now {}".format("on" if not _console.autocomplete_on else "off")), # the value lags behind one update
+                                Notify("tab completion is now {}".format("on" if not persistent.autocomplete_on else "off")), # the value lags behind one update
                             ]
 
                             xpos 150
@@ -1434,7 +1541,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
 
                             text "💡":
                                 at transform:
-                                    alpha (1.0 if _console.autocomplete_on else 0.4)
+                                    alpha (1.0 if persistent.autocomplete_on else 0.4)
                                     matrixcolor ColorizeMatrix("#FFF", "#FFF")
                                 xalign 0.5
                                 yalign 0.5
@@ -1442,7 +1549,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 xoffset -2
                                 prefer_emoji False
                                 style "_console_text"
-                                font "code/utilities/console/fonts/NotoSansSymbols-Regular.ttf"
+                                font "_code/utilities/console/fonts/NotoSansSymbols-Regular.ttf"
                                 size 24
 
                         $ clear_function = config.console_commands.get("clear", None)
@@ -1468,7 +1575,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     yoffset -4
                                     prefer_emoji False
                                     style "_console_text"
-                                    font "code/utilities/console/fonts/NotoSansSymbols-Regular.ttf"
+                                    font "_code/utilities/console/fonts/NotoSansSymbols-Regular.ttf"
                                     size 28
 
                     # region > History
@@ -1480,6 +1587,10 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 id "history_viewport" # need a dummy placeholder for this when vpgrid is hidden
                                 cols 1
                         else:
+
+                            $ vscrollbar_width = 30
+                            $ history_x_padding = 14
+
                             vpgrid as history_vpgrid:
 
                                 id "history_viewport"
@@ -1502,6 +1613,13 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 vscrollbar_base_bar "#17062866"
                                 vscrollbar_bar_vertical True
                                 vscrollbar_bar_invert True
+                                vscrollbar_xsize vscrollbar_width
+
+                                $ history_width = absolute(
+                                    int(persistent.console_bounds[2] if not maximized else config.screen_width)
+                                    - (vscrollbar_width + 2*history_x_padding)
+                                    # + text_size_adjustment
+                                )
 
                                 # limit display to prevent horrendous lag
 
@@ -1511,44 +1629,36 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                         command_lines = None if he.command is None else "{{".join(he.command.split("{"))
                                         result_lines = None if he.result is None or he.is_error else "{{".join(he.result.split("{"))
                                         error_lines = None if he.result is None or not he.is_error else "{{".join(he.result.split("{"))
-                                        history_width = absolute((persistent.console_bounds[2] if not maximized else config.screen_width)-30)
                                     
                                         if command_lines is not None:
-                                            style["current_style"] = Style("_console_command_text", properties={"size":style["_console_command_text"].size + persistent.text_size_adjustment})
-                                            broken_lines = get_lines_from_text_displayable(
-                                                Text(command_lines, substitute=False, style="current_style"),
-                                                width=history_width
-                                            )
+                                            style["current_style"] = command_style_object
+
+                                            broken_lines = get_lines_from_string(command_lines, history_width, text_size_adjustment)
+
                                             for broken_line in broken_lines:
                                                 if broken_line.strip() != "":
                                                     lines_to_print.append((broken_line, "command", command_lines))
 
                                         if result_lines is not None:
-                                            # Style("_console_command_text", properties={"size":50}, name="current_style").inspect()
-                                            # Style("_console_command_text", properties={"size":500}, name=["current_style"]).inspect()
-                                            style["current_style"] = Style("_console_result_text", properties={"size":style["_console_result_text"].size + persistent.text_size_adjustment})
+                                            style["current_style"] = result_style_object
                                             
-                                            broken_lines = get_lines_from_text_displayable(
-                                                Text(result_lines, substitute=False, style="current_style"),
-                                                width=history_width
-                                            )
+                                            broken_lines = get_lines_from_string(result_lines, history_width, text_size_adjustment)
+
                                             for broken_line in broken_lines:
                                                 if broken_line.strip() != "":
                                                     lines_to_print.append((broken_line, "result", "{}{}".format(command_lines + "\n\n" if command_lines is not None else "", result_lines)))
 
                                         if error_lines is not None:
-                                            # Style("_console_command_text", properties={"size":style["_console_command_text"].size + persistent.text_size_adjustment}, name="current_style")
-                                            style["current_style"] = Style("_console_error_text", properties={"size":style["_console_error_text"].size + persistent.text_size_adjustment})
-                                            broken_lines = get_lines_from_text_displayable(
-                                                Text(error_lines, substitute=False, style="current_style"),
-                                                width=history_width
-                                            )
+                                            style["current_style"] = error_style_object
+
+                                            broken_lines = get_lines_from_string(error_lines, history_width, text_size_adjustment)
+
                                             for broken_line in broken_lines:
                                                 if broken_line.strip() != "":
                                                     lines_to_print.append((broken_line, "error", "{}{}".format(command_lines + "\n\n" if command_lines is not None else "", error_lines)))
 
                                         lines_to_print.append(("", "space", ""))
-                                
+
 
 
                                 #### no partitioning. seems to work just as fast
@@ -1576,67 +1686,17 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                                 xfill True
                                                 background None
                                                 # hover_background "#0003" # slows things down when enabled
-                                                padding (4, 0)
+                                                padding (history_x_padding, 0, 0, 0)
 
                                                 text "[line!q]" style line_style layout "nobreak":
                                                     size absolute(getattr(style, line_style).size + text_size_adjustment)
 
-                                #### partitioning strategy
-
-                                # # ["5 + 7", "12", "8-3", "5", "b", "Bob"]
-                                # $ lines_to_print.reverse()
-                                # # ["Bob", "b", "5", "8-3", "12", "5 + 7"]
-                                # $ partitioned_lines = [lines_to_print[i:i + lines_per_row] for i in range(0, len(lines_to_print), lines_per_row)]
-                                # # $ partitioned_lines = [lines_to_print[-i-1:-i-1-lines_per_row:-1] for i in range(0, len(lines_to_print), lines_per_row)]
-                                # # [["Bob", "b", "5", "8-3", "12"], ["5 + 7"]]
-                                # # $ partitioned_lines.reverse()
-                                # # [["5 + 7"], ["Bob", "b", "5", "8-3", "12"]]
-
-                                # for row in partitioned_lines[0:int(history_limit/lines_per_row)]:
-                                #     # $ row.reverse()
-                                #     # [["12", "8-3", "5", "b", "Bob"]]
-                                #     vbox:
-                                #         at transform:
-                                #             yzoom -1.0
-                                #         frame:
-                                #             background None
-                                #             padding (0,0)
-                                #             ysize lines_per_row * line_height
-                                #             vbox:
-                                #                 yalign 1.0
-                                #                 for line, kind, clipboard_text in row[::-1]:
-                                #                     python:
-                                #                         line_style = "_console_{}_text".format(kind)
-                                #                         copy_message = "copied {}".format(
-                                #                             "command" if kind == "command"
-                                #                             else "command and result"
-                                #                         )
-                                #                     button:
-                                #                         action [
-                                #                             CopyToClipboard(clipboard_text),
-                                #                             Notify(copy_message)
-                                #                         ]
-                                #                         ysize line_height
-                                #                         xfill True
-                                #                         background None
-                                #                         hover_background "#0003"
-                                #                         padding (0, 0)
-                                #                         text "[line!q]" style line_style
-
-                                # # ["5 + 7", "12", "8-3", "5", "b", "Bob"]
-                                # $ lines_to_print.reverse()
-                                # # ["Bob", "b", "5", "8-3", "12", "5 + 7"]
-                                # $ partitioned_lines = [lines_to_print[i:i + lines_per_row] for i in range(0, len(lines_to_print), lines_per_row)]
-                                # # $ partitioned_lines = [lines_to_print[-i-1:-i-1-lines_per_row:-1] for i in range(0, len(lines_to_print), lines_per_row)]
-                                # # [["Bob", "b", "5", "8-3", "12"], ["5 + 7"]]
-                                # # $ partitioned_lines.reverse()
-                                # # [["5 + 7"], ["Bob", "b", "5", "8-3", "12"]]
 
                     # region > Autocomplete
 
-                    $ autocomplete_on = _console.autocomplete_on
+                    $ autocomplete_on = persistent.autocomplete_on
 
-                    if _console.autocomplete_on:
+                    if autocomplete_on:
                         fixed as console_autocomplete_frame: # my dream is to make this whole thing disappear when the autocomplete text is empty, but alas, that requires restart_interaction(), and I ain't living that life
                             yalign 1.0
                             ysize 0
@@ -1686,7 +1746,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     xalign 0.5
                                     yalign 0.5
                                     color "#FFF"
-                                    font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                                    font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                                     prefer_emoji False
                                     size absolute((style._console_input_text.size + text_size_adjustment))
 
@@ -1699,7 +1759,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     default default
                                     style "_console_input_text"
 
-                                    changed handle_input_change
+                                    changed console_handle_input_change
 
                                     exclude ""
                                     copypaste True
@@ -1718,7 +1778,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
 
                             drag:
                                 dragged dragged_console_resizer
-                                drag_offscreen ((-1000000,36,1000000,36) if minimized else True)                       
+                                drag_offscreen ((-1000000, 36, 1000000, 36) if minimized else True)                       
 
                                 has button:
                                     background None
@@ -1730,7 +1790,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     xoffset -4
                                     style "_console_text"
                                     color "#FFFFFF"
-                                    font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                                    font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                                     prefer_emoji False
                                     size 36
                                     outlines [ (absolute(0.75), "#FFF", absolute(0), absolute(0)) ]
@@ -1742,7 +1802,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                     yoffset 3
                                     style "_console_text"
                                     color "#FFFFFF"
-                                    font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                                    font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                                     prefer_emoji False
                                     size 18
                                     outlines [ (absolute(0.5), "#FFF", absolute(0), absolute(0)) ]
@@ -1757,13 +1817,15 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
 
     on "show" action [
         Function(console_input.disable),
-        Function(console_autocomplete_input.disable),
+        Function(getattr(console_autocomplete_input, "disable", null)),
         Function(_console.console.show_stdio), # grabs any stdio output in the buffer
         SetVariable(
             "persistent.console_image_summary_layers",
             dict(zip(renpy.display.scenelists.ordered_layers, [True for i in range(0, len(renpy.display.scenelists.ordered_layers))])) if len(persistent.console_image_summary_layers) != len(renpy.display.scenelists.ordered_layers) else persistent.console_image_summary_layers
         ),
     ]
+
+    timer persistent.console_stdio_monitoring_frequency repeat True action Function(update_if_new_stdio_lines, _update_screens=False)
 
     # region Keys
 
@@ -1788,6 +1850,9 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
 
     key "anyrepeat_K_UP" action Function(update_autocomplete_list_position_and_text, offset_by=-1, _update_screens=False)
     key "anyrepeat_K_DOWN" action Function(update_autocomplete_list_position_and_text, offset_by=1, _update_screens=False)
+
+    key "anyrepeat_K_LEFT" action Function(console_handle_input_change, content=None, caret_offset=1, _update_screens=False) capture False
+    key "anyrepeat_K_RIGHT" action Function(console_handle_input_change, content=None, caret_offset=-1, _update_screens=False) capture False
 
     # timer 0.2 repeat True action If(len(_console.stdio_lines) > 0, Notify("there's some text to collect"))
 
@@ -1874,8 +1939,8 @@ screen show_console_button():
         key "shift_K_o" action NullAction() capture True
         key "console" action button_action capture True
 
-init python:
-    config.always_shown_screens.append("show_console_button")
+# init python:
+#     config.always_shown_screens.append("show_console_button")
 
 
 # region Watch Screen
@@ -1922,7 +1987,7 @@ screen _trace_screen():
                     vbox:
                         spacing 20
                         python:
-                            expressions = []
+                            expressions = python_list([])
                             for item in _console.traced_expressions:
                                 if item not in expressions:
                                     expressions.append(item)
@@ -1971,7 +2036,7 @@ screen _trace_screen():
                     xoffset -4
                     style "_console_text"
                     color "#FFFFFF"
-                    font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                    font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                     prefer_emoji False
                     size 36
                     outlines [ (absolute(0.75), "#FFF", absolute(0), absolute(0)) ]
@@ -1983,7 +2048,7 @@ screen _trace_screen():
                     yoffset 3
                     style "_console_text"
                     color "#FFFFFF"
-                    font "code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
+                    font "_code/utilities/console/fonts/NotoSansSymbols2-Regular.ttf"
                     prefer_emoji False
                     size 18
                     outlines [ (absolute(0.5), "#FFF", absolute(0), absolute(0)) ]
@@ -2013,46 +2078,46 @@ label _my_console_return:
 init python:
     import datetime
 
-    def sayer(character_name):
-        """Used to dynamically assign a speaker to say something. like sayer(character_name_variable) 'Thing to say.'"""
-        return getattr(store, character_name.lower())
+    # def sayer(character_name):
+    #     """Used to dynamically assign a speaker to say something. like sayer(character_name_variable) 'Thing to say.'"""
+    #     return getattr(store, character_name.lower())
 
-    def snapshot_character(character, file_name=None, layer="master"):
-        image_tag = character.image_tag
-        if file_name is None:
-            file_name = "{}_snapshot_{}.png".format(character.name, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        d = renpy.get_screen(image_tag, layer)
-        renpy.render_to_file(d, file_name)
-        return file_name
+    # def snapshot_character(character, file_name=None, layer="master"):
+    #     image_tag = character.image_tag
+    #     if file_name is None:
+    #         file_name = "{}_snapshot_{}.png".format(character.name, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    #     d = renpy.get_screen(image_tag, layer)
+    #     renpy.render_to_file(d, file_name)
+    #     return file_name
 
-    def snapshot_tag(image_tag, file_name=None, layer="master"):
-        if file_name is None:
-            file_name = "{}_snapshot_{}.png".format(image_tag, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        d = renpy.get_screen(image_tag, layer)
-        renpy.render_to_file(d, file_name)
-        return file_name    
+    # def snapshot_tag(image_tag, file_name=None, layer="master"):
+    #     if file_name is None:
+    #         file_name = "{}_snapshot_{}.png".format(image_tag, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    #     d = renpy.get_screen(image_tag, layer)
+    #     renpy.render_to_file(d, file_name)
+    #     return file_name    
 
-    def draw_from(deck, stock=[]):
-        """
-        Treats a list like a deck of cards.
-        When empty, assigns the list variable to the default stock and shuffles it.
-        Pops one element per draw.
+    # def draw_from(stack, stock):
+    #     """
+    #     Treats a list like a deck of cards.
+    #     When empty, assigns the list variable to the default stock and shuffles it.
+    #     Pops one element per draw.
 
-        "Draw from deck, replenish with stock."
+    #     "Draw from deck, replenish with stock."
 
-        Pattern is generally:
-        default deck = []
-        default stock = ["option 1", "option 2", "option 3"]
-        draw_from(deck, stock)
-        """
+    #     Pattern is generally:
+    #     default stack = []
+    #     default stock = ["option 1", "option 2", "option 3"]
+    #     draw_from(deck, stock)
+    #     """
 
-        # shuffle options into the deck
-        if len(deck) < 1:
-            deck.extend(stock.copy())
-            # using renpy.random so this is compatible with rollbacks and such
-            renpy.random.shuffle(deck)
-        # draw an option
-        return deck.pop()
+    #     # shuffle options into the deck
+    #     if len(stack) < 1:
+    #         stack.extend(stock.copy())
+    #         # using renpy.random so this is compatible with rollbacks and such
+    #         renpy.random.shuffle(stack)
+    #     # draw an option
+    #     return stack.pop()
 
     # gets a placement object from an image tag, presuming it to be on the master layer
     # a placement object has the following properties
