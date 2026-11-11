@@ -993,9 +993,28 @@ init python:
     def is_object_function_like(obj):
         return hasattr(obj, "__call__")
 
-    def does_function_have_args(func):
-        signature = str(inspect.signature(func))
-        return signature not in ['()', '(self)']
+    # this is super messy
+    # inspect.signature works perfectly, but is remarkably slow
+    # so we use a sieve instead
+    def does_function_like_have_args(function_like_object):
+
+        try:
+            return len(function_like_object.__code__.co_varnames) > 0
+        except:
+            pass
+
+        try:
+            return len(function_like_object.__call__.__self__.__func__.__code__.co_varnames) > 0
+        except:
+            pass
+
+        if type(function_like_object) == type(abs):
+            try:
+                return len(inspect.signature(function_like_object).parameters) > 0
+            except:
+                pass
+
+        return False
 
     def get_available_variables(line):
         subject = re.split(r'[^\w\.]', line)[-1]
@@ -1004,25 +1023,32 @@ init python:
         available_variables = python_list([])
 
         if re.match(r'^.*\w.*$', subject):
-            try:
-                subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
+            # try:
+            subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
 
-                for member_name in dir(subject_object):
-                    item_string = member_name
-                    member = getattr(subject_object, member_name)
-                    try:
-                        if is_object_function_like(member):
-                            if does_function_have_args(member):
-                                item_string += '(…)'
-                            else:
-                                item_string += '()'
-                    except:
-                        pass
+            for member_name in dir(subject_object):
+                item_string = member_name
+                member = getattr(subject_object, member_name)
+                try:
 
-                    available_variables += [item_string]
+                    if is_object_function_like(member):
+                        item_string += '('
 
-            except:
-                pass
+                        try:
+                            if does_function_like_have_args(member):
+                                item_string += '…'
+                        except:
+                            pass
+                    
+                        item_string += ')'
+
+                except:
+                    pass
+
+                available_variables += [item_string]
+
+            # except:
+            #     pass
 
         if keywords[-1] == current_leaf:
 
@@ -1172,7 +1198,7 @@ init python:
             branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
             completed_statement = branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index]
 
-            set_console_input_text(completed_statement.strip(')').strip('.').strip('…'))
+            set_console_input_text(completed_statement.strip(')').strip('.'))
         
             console_clear_autocomplete()
         else:
