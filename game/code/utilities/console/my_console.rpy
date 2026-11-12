@@ -1222,7 +1222,7 @@ init python:
             branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
             completed_statement = branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index]
 
-            set_console_input_text(completed_statement.strip(')').strip('.'))
+            set_console_input_text(completed_statement.strip(')').strip('.').strip('…'))
         
             console_clear_autocomplete()
         else:
@@ -1236,7 +1236,7 @@ init python:
             branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
             completed_statement = branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index]
 
-            set_console_input_text(completed_statement.strip(')').strip('.'))
+            set_console_input_text(completed_statement.strip(')').strip('.').strip('…'))
 
             if(input_text == completed_statement):
 
@@ -1676,41 +1676,45 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 for i, he in enumerate(history[-min(history_limit, len(history)):]):
                                     # each individual item
                                     python:
-                                        command_lines = None if he.command is None else "{{".join(he.command.split("{"))
-                                        result_lines = None if he.result is None or he.is_error else "{{".join(he.result.split("{"))
-                                        error_lines = None if he.result is None or not he.is_error else "{{".join(he.result.split("{"))
-                                    
-                                        if command_lines is not None:
-                                            style["current_style"] = command_style_object
+                                        # kind of critical we don't make errors happen while doing this or it gets recursive
+                                        try:
+                                            command_lines = None if he.command is None else "{{".join(he.command.split("{"))
+                                            result_lines = None if he.result is None or he.is_error else "{{".join(he.result.split("{"))
+                                            error_lines = None if he.result is None or not he.is_error else "{{".join(he.result.split("{"))
+                                        
+                                            if command_lines is not None:
+                                                style["current_style"] = command_style_object
 
-                                            broken_lines = get_lines_from_string(command_lines, history_width, text_size_adjustment)
-                                            # broken_lines = get_lines_from_string(command_lines, history_width, text_size_adjustment).split('\n')
+                                                broken_lines = get_lines_from_string(command_lines, history_width, text_size_adjustment)
+                                                # broken_lines = get_lines_from_string(command_lines, history_width, text_size_adjustment).split('\n')
 
-                                            for broken_line in broken_lines:
-                                                if broken_line.strip() != "":
-                                                    lines_to_print.append((broken_line, "command", command_lines))
+                                                for broken_line in broken_lines:
+                                                    if broken_line.strip() != "":
+                                                        lines_to_print.append((broken_line, "command", command_lines))
 
-                                        if result_lines is not None:
-                                            style["current_style"] = result_style_object
-                                            
-                                            broken_lines = get_lines_from_string(result_lines, history_width, text_size_adjustment)
-                                            # broken_lines = get_lines_from_string(result_lines, history_width, text_size_adjustment).split('\n')
+                                            if result_lines is not None:
+                                                style["current_style"] = result_style_object
+                                                
+                                                broken_lines = get_lines_from_string(result_lines, history_width, text_size_adjustment)
+                                                # broken_lines = get_lines_from_string(result_lines, history_width, text_size_adjustment).split('\n')
 
-                                            for broken_line in broken_lines:
-                                                if broken_line.strip() != "":
-                                                    lines_to_print.append((broken_line, "result", "{}{}".format(command_lines + "\n\n" if command_lines is not None else "", result_lines)))
+                                                for broken_line in broken_lines:
+                                                    if broken_line.strip() != "":
+                                                        lines_to_print.append((broken_line, "result", "{}{}".format(command_lines + "\n\n" if command_lines is not None else "", result_lines)))
 
-                                        if error_lines is not None:
-                                            style["current_style"] = error_style_object
+                                            if error_lines is not None:
+                                                style["current_style"] = error_style_object
 
-                                            broken_lines = get_lines_from_string(error_lines, history_width, text_size_adjustment)
-                                            # broken_lines = get_lines_from_string(error_lines, history_width, text_size_adjustment).split('\n')
+                                                broken_lines = get_lines_from_string(error_lines, history_width, text_size_adjustment)
+                                                # broken_lines = get_lines_from_string(error_lines, history_width, text_size_adjustment).split('\n')
 
-                                            for broken_line in broken_lines:
-                                                if broken_line.strip() != "":
-                                                    lines_to_print.append((broken_line, "error", "{}{}".format(command_lines + "\n\n" if command_lines is not None else "", error_lines)))
+                                                for broken_line in broken_lines:
+                                                    if broken_line.strip() != "":
+                                                        lines_to_print.append((broken_line, "error", "{}{}".format(command_lines + "\n\n" if command_lines is not None else "", error_lines)))
 
-                                        lines_to_print.append(("", "space", ""))
+                                            lines_to_print.append(("", "space", ""))
+                                        except:
+                                            pass
 
 
 
@@ -1723,6 +1727,11 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                             "command" if kind == "command"
                                             else "command and result"
                                         )
+                                        clipboard_content = ""
+                                        try:
+                                            clipboard_content = "{".join(clipboard_text.split("{{"))
+                                        except:
+                                            pass
                                     fixed:
                                         ysize line_height
                                         at transform:
@@ -1732,7 +1741,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                         else:
                                             button:
                                                 action [
-                                                    CopyToClipboard("{".join(clipboard_text.split("{{"))),
+                                                    CopyToClipboard(clipboard_content),
                                                     Notify(copy_message)
                                                 ]
                                                 ysize line_height
