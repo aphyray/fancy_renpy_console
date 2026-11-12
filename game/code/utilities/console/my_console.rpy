@@ -241,7 +241,7 @@ init -1400 python in _console:
 
             pass
 
-    @functools.cache
+    @functools.lru_cache(250)
     def is_renpy_statement(line):
         rv = len(renpy.parser.parse_block(renpy.lexer.lex_string(line, advance=False))) > 0
         return rv
@@ -517,6 +517,7 @@ init python:
         persistent.console_bounds = (absolute(persistent.console_bounds[0]), absolute(persistent.console_bounds[1]), absolute(max(600, persistent.console_bounds[2] + drags[0].x)), absolute(max(300, persistent.console_bounds[3] + drags[0].y)))
         drags[0].snap(0, 0, 0, _warper.easein_elastic)
         # Scroll("history_viewport", "vertical increase", 20000.0, 0.01).__call__()
+        get_lines_from_string.cache_clear()
         renpy.restart_interaction()
         return None
 
@@ -711,7 +712,7 @@ init python:
     def image_summary(layers=None):
         return "\n".join(get_image_summary(layers))
 
-    @functools.cache
+    @functools.lru_cache(250)
     def get_script_lines(filename):
 
         filename = renpy.exports.unelide_filename(filename)
@@ -727,7 +728,7 @@ init python:
         return data
 
     # loc is a tuple with (path, line_number)
-    @functools.cache
+    @functools.lru_cache(250)
     def get_line_from_loc(loc):
         return get_script_lines(loc[0]).splitlines()[loc[1]]
 
@@ -902,21 +903,8 @@ init python:
         while expression in _console.traced_expressions:
             renpy.unwatch(expression)
 
-    # @functools.cache
-    # def get_lines_from_text_displayable(text_displayable, width=500):
-        
-    #     text_displayable.update() # creates tokens, which Layout requires
 
-    #     layout = renpy.text.text.Layout(text_displayable, width, 0, None, drawable_res=False)
-
-    #     lines = python_list([])
-
-    #     for line in layout.lines:
-    #         lines.append("".join([ chr(g.character) for g in line.glyphs ]))
-        
-    #     return lines
-
-    @functools.cache
+    @functools.lru_cache(250)
     def get_lines_from_string(string, width, text_size_adjustment, substitute=False, style="current_style"):
         
         # text_size_adjustment to help with caching
@@ -936,6 +924,27 @@ init python:
         del layout
 
         return lines
+
+    # @functools.lru_cache(250)
+    # def get_lines_from_string(string, width, text_size_adjustment, substitute=False, style="current_style"):
+        
+    #     # text_size_adjustment to help with caching
+
+    #     text_displayable = Text(string, width=width, substitute=substitute, style=style)
+
+    #     text_displayable.update() # creates tokens, which Layout requires
+
+    #     layout = renpy.text.text.Layout(text_displayable, width, 0, None, drawable_res=False)
+
+    #     lines = ""
+
+    #     for line in layout.lines:
+    #         lines += "\n" + ("".join([ chr(g.character) for g in line.glyphs ]))
+        
+    #     del text_displayable
+    #     del layout
+
+    #     return lines
 
     # def refresh_console():
     #     if renpy.get_screen("_console"):
@@ -957,7 +966,7 @@ init python:
     #     # "00009big_string" when there's a 0.9 fuzzy ratio - x10 to group into rough categories and then alphabetically 
     #     return "00000" + big_string if big_string.startswith(small_string) else "{:05d}{}".format(10 - int(10*SequenceMatcher(None, small_string, big_string).ratio()), big_string)
 
-    @functools.cache
+    @functools.lru_cache(250)
     def fuzzy_match_sorter(big_string, small_string):
         lower_big_string = str.casefold(big_string)
         lower_small_string = str.casefold(small_string)
@@ -980,7 +989,7 @@ init python:
             )
         )
 
-    @functools.cache
+    @functools.lru_cache(250)
     def get_sorted_variables(variable_list, current_leaf):
         return tuple(sorted(
             [
@@ -1021,52 +1030,67 @@ init python:
         current_leaf = subject.split('.')[-1]
         keywords = re.split(r'[ ]', line)
         available_variables = python_list([])
-
-        if re.match(r'^.*\w.*$', subject):
-            # try:
-            subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
-
-            for member_name in dir(subject_object):
-                item_string = member_name
-                member = getattr(subject_object, member_name)
-                try:
-
-                    if is_object_function_like(member):
-                        item_string += '('
-
-                        try:
-                            if does_function_like_have_args(member):
-                                item_string += '…'
-                        except:
-                            pass
-                    
-                        item_string += ')'
-
-                except:
-                    pass
-
-                available_variables += [item_string]
-
-            # except:
-            #     pass
+        overridden = False
 
         if keywords[-1] == current_leaf:
-
-            available_variables += keyword.kwlist # python keywords
 
             if subject == current_leaf:
                 available_variables += python_list(config.console_commands) # renpy console commands
                 available_variables += [i for sub in python_list(renpy.statements.registry.keys()) for i in sub ] # renpy statements
 
             if len(keywords) > 1:
-                if keywords[-2] in ["show", "hide", "scene"]:
-                    available_variables += renpy.display.image.get_available_image_tags()
-                    available_variables += ["expression", "screen"]
-                
-                if keywords[-2] in ["jump", "call"]:
-                    available_variables += renpy.get_all_labels()
+                previous_keyword = keywords[-2]
 
-        return get_sorted_variables(tuple(available_variables), current_leaf)
+                # overrides for special keywords
+                if previous_keyword in ["screen"]:
+                    available_variables = [key[0] for key in renpy.display.screen.screens.keys()]
+                    available_variables += ["expression"]
+                    overridden = True
+                
+                elif previous_keyword in ["show", "hide", "scene"]:
+                    available_variables = renpy.display.image.get_available_image_tags()
+                    available_variables += ["expression", "screen"]
+                    overridden = True
+                
+                elif previous_keyword in ["jump", "call"]:
+                    available_variables = renpy.get_all_labels()
+                    available_variables += ["expression"]
+                    overridden = True
+                
+                else:
+
+                    available_variables += keyword.kwlist # python keywords
+
+        if not overridden and re.match(r'^.*\w.*$', subject):
+            try:
+                subject_object = eval('.'.join(("store." + subject).split('.')[0:-1]))
+
+                for member_name in dir(subject_object):
+                    item_string = member_name
+                    member = getattr(subject_object, member_name)
+                    try:
+
+                        if is_object_function_like(member):
+                            item_string += '('
+
+                            try:
+                                if does_function_like_have_args(member):
+                                    item_string += '…'
+                            except:
+                                pass
+                        
+                            item_string += ')'
+
+                    except:
+                        pass
+
+                    available_variables += [item_string]
+
+            except:
+                pass
+
+
+        return [variable for variable in get_sorted_variables(tuple(available_variables), current_leaf) if variable[0] not in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
 
         # return sorted(
         #     [
@@ -1255,7 +1279,7 @@ init python:
             _console.console.show_stdio()
             history_scroll_adjustment.change(0)
 
-    @functools.cache
+    @functools.lru_cache(250)
     def get_console_line_style(base_style_name, text_size_adjustment):
         return Style(base_style_name, properties={"size":style[base_style_name].size + text_size_adjustment})
 
@@ -1410,7 +1434,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                 null:
                                     xfill True
                                 button:
-                                    action IncrementVariable("persistent.text_size_adjustment", -2)
+                                    action IncrementVariable("persistent.text_size_adjustment", -2), Function(get_lines_from_string.cache_clear, _update_screens=False)
                                     padding (16, 16)
                                     xsize 42
                                     ysize 42
@@ -1421,7 +1445,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                         size 20
                                         outlines [ (absolute(1.0), "#FFF", absolute(0), absolute(0)) ]
                                 button:
-                                    action IncrementVariable("persistent.text_size_adjustment", 2)
+                                    action IncrementVariable("persistent.text_size_adjustment", 2), Function(get_lines_from_string.cache_clear, _update_screens=False)
                                     padding (16, 16)
                                     xsize 42
                                     ysize 42
@@ -1660,6 +1684,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                             style["current_style"] = command_style_object
 
                                             broken_lines = get_lines_from_string(command_lines, history_width, text_size_adjustment)
+                                            # broken_lines = get_lines_from_string(command_lines, history_width, text_size_adjustment).split('\n')
 
                                             for broken_line in broken_lines:
                                                 if broken_line.strip() != "":
@@ -1669,6 +1694,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                             style["current_style"] = result_style_object
                                             
                                             broken_lines = get_lines_from_string(result_lines, history_width, text_size_adjustment)
+                                            # broken_lines = get_lines_from_string(result_lines, history_width, text_size_adjustment).split('\n')
 
                                             for broken_line in broken_lines:
                                                 if broken_line.strip() != "":
@@ -1678,6 +1704,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                             style["current_style"] = error_style_object
 
                                             broken_lines = get_lines_from_string(error_lines, history_width, text_size_adjustment)
+                                            # broken_lines = get_lines_from_string(error_lines, history_width, text_size_adjustment).split('\n')
 
                                             for broken_line in broken_lines:
                                                 if broken_line.strip() != "":
@@ -1745,6 +1772,7 @@ screen _console(lines=_console.console.lines[:-1], indent="  ", default=_console
                                         style "_console_input_text"
                                         size absolute(style._console_input_text.size + text_size_adjustment)
                                         caret Null()
+                                        layout "nobreak"
 
                     # region > Input
 
