@@ -96,6 +96,7 @@ init -1500:
         font "_code/utilities/console/fonts/AzeretMono-Regular.ttf"
         adjust_spacing False
         antialias False
+        hinting 'auto-light'
         font_features { "liga": False, "clig" : False }
         language "anywhere" # where to split words. anywhere is... as it says on the box. will event split words in the middle
         yalign 0.5
@@ -999,31 +1000,49 @@ init python:
             key=renpy.partial(fuzzy_match_sorter, small_string=current_leaf)
         ))
 
-    def is_object_function_like(obj):
+    def is_object_functionlike(obj):
         return hasattr(obj, "__call__")
 
     # this is super messy
     # inspect.signature works perfectly, but is remarkably slow
     # so we use a sieve instead
-    def does_function_like_have_args(function_like_object):
+    def does_functionlike_have_args(functionlike_object):
 
         try:
-            return len(function_like_object.__code__.co_varnames) > 0
+            return len(functionlike_object.parameters.parameters) > 0
         except:
             pass
 
         try:
-            return len(function_like_object.__call__.__self__.__func__.__code__.co_varnames) > 0
+            return len(functionlike_object.__code__.co_varnames) > 0
         except:
             pass
 
-        if type(function_like_object) == type(abs):
+        try:
+            return len(functionlike_object.__new__.__code__.co_varnames) > 0
+        except:
+            pass
+
+        try:
+            return len(functionlike_object.__init__.__code__.co_varnames) > 0
+        except:
+            pass
+
+        try:
+            return len(functionlike_object.__call__.__self__.__func__.__code__.co_varnames) > 0
+        except:
+            pass
+
+        if type(functionlike_object) == type(abs):
             try:
-                return len(inspect.signature(function_like_object).parameters) > 0
+                return len(inspect.signature(functionlike_object).parameters) > 0
             except:
                 pass
 
         return False
+
+    def is_functionlike_a_transform(functionlike_object):
+        return type(functionlike_object) == renpy.display.transform.ATLTransform
 
     def get_available_variables(line):
         subject = re.split(r'[^\w\.]', line)[-1]
@@ -1035,31 +1054,33 @@ init python:
         if keywords[-1] == current_leaf:
 
             if subject == current_leaf:
-                available_variables += python_list(config.console_commands) # renpy console commands
-                available_variables += [i for sub in python_list(renpy.statements.registry.keys()) for i in sub ] # renpy statements
+                # renpy's console commands
+                available_variables += python_list(config.console_commands)
+                # renpy's statements
+                available_variables += python_list([i for sub in python_list(renpy.statements.registry.keys()) for i in sub ])
 
             if len(keywords) > 1:
                 previous_keyword = keywords[-2]
 
                 # overrides for special keywords
                 if previous_keyword in ["screen"]:
-                    available_variables = [key[0] for key in renpy.display.screen.screens.keys()]
+                    available_variables = python_list([key[0] for key in renpy.display.screen.screens.keys()])
                     available_variables += ["expression"]
                     overridden = True
                 
                 elif previous_keyword in ["show", "hide", "scene"]:
-                    available_variables = renpy.display.image.get_available_image_tags()
-                    available_variables += ["expression", "screen"]
+                    available_variables = python_list(renpy.display.image.get_available_image_tags())
+                    available_variables += python_list(["expression", "screen"])
                     overridden = True
                 
                 elif previous_keyword in ["jump", "call"]:
-                    available_variables = renpy.get_all_labels()
+                    available_variables = python_list(renpy.get_all_labels())
                     available_variables += ["expression"]
                     overridden = True
                 
                 else:
-
-                    available_variables += keyword.kwlist # python keywords
+                    # python keywords
+                    available_variables += python_list(keyword.kwlist)
 
         if not overridden and re.match(r'^.*\w.*$', subject):
             try:
@@ -1070,16 +1091,20 @@ init python:
                     member = getattr(subject_object, member_name)
                     try:
 
-                        if is_object_function_like(member):
+                        if is_object_functionlike(member):
                             item_string += '('
 
                             try:
-                                if does_function_like_have_args(member):
+                                if does_functionlike_have_args(member):
                                     item_string += '…'
                             except:
                                 pass
                         
                             item_string += ')'
+                            
+                            if is_functionlike_a_transform(member):
+
+                                item_string += ' <Transform>'
 
                     except:
                         pass
@@ -1215,6 +1240,22 @@ init python:
         update_autocomplete_list_position_and_text()
         set_console_autocomplete_text("")
 
+    def process_autocomplete_statement(completed_statement):
+
+        # sometimes we put ' <ClassName>' at the end, like ' <Transform>'
+        completed_statement = re.split(r' <\w*>$', completed_statement)[0]
+
+        # if we know there aren't any args in the method, we can safely close it
+        # otherwise, so the user can enter args, turn (...) -> (
+        return (
+            completed_statement
+            if len(completed_statement) > 1 and any([
+                completed_statement[-2:] == '()',
+                completed_statement[-1] != ')',
+            ])
+            else completed_statement.strip(')').strip('.').strip('…')
+        )
+
     def console_handle_tab_keypress():
         if len(persistent.autocomplete_list) > 0:
         
@@ -1222,7 +1263,9 @@ init python:
             branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
             completed_statement = branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index]
 
-            set_console_input_text(completed_statement.strip(')').strip('.').strip('…'))
+            completed_statement = process_autocomplete_statement(completed_statement)
+
+            set_console_input_text(completed_statement)
         
             console_clear_autocomplete()
         else:
@@ -1236,7 +1279,7 @@ init python:
             branch_and_leaf = get_branch_and_leaf_from_incomplete_statement(input_text)
             completed_statement = branch_and_leaf["branch"] + persistent.autocomplete_list[persistent.autocomplete_selection_index]
 
-            set_console_input_text(completed_statement.strip(')').strip('.').strip('…'))
+            completed_statement = process_autocomplete_statement(completed_statement)
 
             if(input_text == completed_statement):
 
@@ -1255,6 +1298,9 @@ init python:
                 console_process_input(_console.console)
                 _console.console.show_stdio()
         
+            else:
+                set_console_input_text(completed_statement)
+
             console_clear_autocomplete()
 
         else:
